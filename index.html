@@ -97,7 +97,7 @@
                 const milharExtenso = (milhar === 1 ? 'mil' : numeroInteiroPorExtenso(milhar) + ' mil');
                 return milharExtenso + (resto > 0 ? ' e ' + numeroInteiroPorExtenso(resto) : '');
             }
-            return 'valor acima de cem mil não suportado';
+            return 'valor acima de 99999.99';
         }
 
         const [reais, centavos] = valor.toFixed(2).split('.').map(Number);
@@ -205,7 +205,7 @@
                             <td>${formattedDate}</td>
                         </tr>
                     </table>
-                    <p style="margin-top: 20px;"><strong>Assinatura do Recebedor:</strong> _______________________________</p>
+                    <p style="margin-top: 20px;"><strong>Assinatura do Recebedor:</strong> ${receiver} </p>
                 </div>
                 <a class="print-btn" href="javascript:window.print()">Imprimir Recibo</a>
             </body>
