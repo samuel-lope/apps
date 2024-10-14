@@ -66,7 +66,7 @@
     <input type="text" id="receiver" placeholder="Digite o nome do recebedor">
 
     <label for="amount">Valor (R$):</label>
-    <input type="number" id="amount" placeholder="Digite o valor" step="0.01">
+    <input type="number" id="amount" placeholder="Digite o valor" step="1.00">
 
     <label for="description">Finalidade do Pagamento (Descrição):</label>
     <textarea id="description" placeholder="Digite a finalidade do pagamento"></textarea>
@@ -138,7 +138,7 @@
         popupWindow.document.write(`
             <html>
             <head>
-                <title>Recibo</title>
+                <title>Recibo de Pagamento</title>
                 <style>
                     body {
                         font-family: "Courier New", Courier, monospace;
@@ -205,7 +205,7 @@
                             <td>${formattedDate}</td>
                         </tr>
                     </table>
-                    <p style="margin-top: 20px;"><strong>Assinatura do Recebedor:</strong> ${receiver} </p>
+                    <p style="margin-top: 20px;"><strong>Assinatura do Recebedor:</strong> <br/> ${receiver} </p>
                 </div>
                 <a class="print-btn" href="javascript:window.print()">Imprimir Recibo</a>
             </body>
