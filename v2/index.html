@@ -583,65 +583,109 @@
 
             // Converter valor para extenso
             function valorPorExtenso(valor) {
-                if (!valor) return 'zero reais';
+    if (!valor) return 'zero reais';
+    
+    // Converte para número
+    valor = valor.replace(/\./g, '').replace(',', '.');
+    valor = parseFloat(valor);
+    
+    if (isNaN(valor)) return 'valor inválido';
+    
+    // Separar parte inteira e decimal
+    const parteInteira = Math.floor(valor);
+    const parteDecimal = Math.round((valor - parteInteira) * 100);
+    
+    const unidades = ['', 'um', 'dois', 'três', 'quatro', 'cinco', 'seis', 'sete', 'oito', 'nove'];
+    const dezADezenove = ['dez', 'onze', 'doze', 'treze', 'quatorze', 'quinze', 'dezesseis', 'dezessete', 'dezoito', 'dezenove'];
+    const dezenas = ['', '', 'vinte', 'trinta', 'quarenta', 'cinquenta', 'sessenta', 'setenta', 'oitenta', 'noventa'];
+    const centenas = ['', 'cento', 'duzentos', 'trezentos', 'quatrocentos', 'quinhentos', 'seiscentos', 'setecentos', 'oitocentos', 'novecentos'];
+    
+    function converterGrupo(numero) {
+        if (numero === 0) return '';
+        if (numero === 100) return 'cem';
+        if (numero < 10) return unidades[numero];
+        if (numero < 20) return dezADezenove[numero - 10];
+        if (numero < 100) {
+            const dezena = Math.floor(numero / 10);
+            const unidade = numero % 10;
+            return dezenas[dezena] + (unidade ? ' e ' + unidades[unidade] : '');
+        }
+        const centena = Math.floor(numero / 100);
+        const resto = numero % 100;
+        return centenas[centena] + (resto ? ' e ' + converterGrupo(resto) : '');
+    }
+    
+    function converterNumeroCompleto(numero) {
+        if (numero === 0) return 'zero';
+        
+        const grupos = [];
+        const nomesGrupos = ['', 'mil', 'milhão', 'bilhão', 'trilhão'];
+        const nomesGruposPlural = ['', 'mil', 'milhões', 'bilhões', 'trilhões'];
+        
+        let resultado = '';
+        
+        // Divide o número em grupos de 3 dígitos
+        let numeroStr = String(numero);
+        while (numeroStr.length > 0) {
+            const tamanho = Math.min(3, numeroStr.length);
+            grupos.unshift(parseInt(numeroStr.substring(numeroStr.length - tamanho)));
+            numeroStr = numeroStr.substring(0, numeroStr.length - tamanho);
+        }
+        
+        // Converte cada grupo
+        for (let i = 0; i < grupos.length; i++) {
+            const valor = grupos[i];
+            const posicao = grupos.length - 1 - i;
+            
+            if (valor !== 0) {
+                const nomeGrupo = valor === 1 && posicao !== 0 ? nomesGrupos[posicao] : nomesGruposPlural[posicao];
                 
-                // Converte para número
-                valor = valor.replace(/\./g, '').replace(',', '.');
-                valor = parseFloat(valor);
-                
-                if (isNaN(valor)) return 'valor inválido';
-                
-                // Separar parte inteira e decimal
-                const parteInteira = Math.floor(valor);
-                const parteDecimal = Math.round((valor - parteInteira) * 100);
-                
-                const unidades = ['', 'um', 'dois', 'três', 'quatro', 'cinco', 'seis', 'sete', 'oito', 'nove'];
-                const dezADezenove = ['dez', 'onze', 'doze', 'treze', 'quatorze', 'quinze', 'dezesseis', 'dezessete', 'dezoito', 'dezenove'];
-                const dezenas = ['', '', 'vinte', 'trinta', 'quarenta', 'cinquenta', 'sessenta', 'setenta', 'oitenta', 'noventa'];
-                const centenas = ['', 'cento', 'duzentos', 'trezentos', 'quatrocentos', 'quinhentos', 'seiscentos', 'setecentos', 'oitocentos', 'novecentos'];
-                
-                function converterNumero(numero) {
-                    if (numero === 0) return 'zero';
-                    if (numero === 1) return 'um';
-                    if (numero < 10) return unidades[numero];
-                    if (numero < 20) return dezADezenove[numero - 10];
-                    if (numero < 100) {
-                        const dezena = Math.floor(numero / 10);
-                        const unidade = numero % 10;
-                        return dezenas[dezena] + (unidade ? ' e ' + unidades[unidade] : '');
-                    }
-                    if (numero === 100) return 'cem';
-                    if (numero < 1000) {
-                        const centena = Math.floor(numero / 100);
-                        const resto = numero % 100;
-                        return centenas[centena] + (resto ? ' e ' + converterNumero(resto) : '');
-                    }
-                    return 'número não suportado';
-                }
-                
-                let extenso = '';
-                
-                if (parteInteira === 1) {
-                    extenso = 'um real';
-                } else if (parteInteira > 1) {
-                    extenso = converterNumero(parteInteira) + ' reais';
-                }
-                
-                if (parteDecimal > 0) {
-                    if (parteInteira > 0) {
-                        extenso += ' e ';
-                    }
-                    
-                    if (parteDecimal === 1) {
-                        extenso += 'um centavo';
+                if (resultado !== '') {
+                    // Se o valor for menor que 100, adiciona "e"
+                    if (valor < 100) {
+                        resultado += ' e ';
                     } else {
-                        extenso += converterNumero(parteDecimal) + ' centavos';
+                        // Verifica se deve usar vírgula ou "e"
+                        const proximoGrupoTemValor = grupos.slice(i + 1).some(g => g !== 0);
+                        resultado += proximoGrupoTemValor ? ', ' : ' e ';
                     }
                 }
                 
-                return extenso;
+                resultado += converterGrupo(valor);
+                if (nomeGrupo !== '') {
+                    resultado += ' ' + nomeGrupo;
+                }
             }
-
+        }
+        
+        return resultado;
+    }
+    
+    let extenso = '';
+    
+    if (parteInteira === 0 && parteDecimal === 0) {
+        return 'zero reais';
+    }
+    
+    if (parteInteira > 0) {
+        extenso = converterNumeroCompleto(parteInteira);
+        extenso += parteInteira === 1 ? ' real' : ' reais';
+    }
+    
+    if (parteDecimal > 0) {
+        if (parteInteira > 0) {
+            extenso += ' e ';
+        }
+        
+        if (parteDecimal === 1) {
+            extenso += 'um centavo';
+        } else {
+            extenso += converterGrupo(parteDecimal) + ' centavos';
+        }
+    }
+    
+    return extenso;
+}
             // Gerar HTML do recibo
             function gerarHTMLRecibo() {
                 const nomePagador = document.getElementById('nomePagador').value;
