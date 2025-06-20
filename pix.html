@@ -1,0 +1,509 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Criar QRCode PIX</title>
+    <style>
+        /* Estilos baseados no layout fornecido */
+        :root {
+            --primary-color: #2563eb;
+            --secondary-color: #4b5563;
+            --accent-color: #3b82f6;
+            --bg-color: #f9fafb;
+            --card-bg: #ffffff;
+            --text-color: #1f2937;
+            --border-color: #e5e7eb;
+            --success-color: #10b981;
+            --error-color: #ef4444;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            line-height: 1.6;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: var(--card-bg);
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+            padding-bottom: 15px;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .header h1 {
+            color: var(--primary-color);
+            font-size: 28px;
+            margin-bottom: 10px;
+        }
+
+        .header p {
+            color: var(--secondary-color);
+            font-size: 16px;
+        }
+
+        .section {
+            margin-bottom: 25px;
+            padding: 20px;
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            background-color: #fafafa;
+        }
+
+        .section h2 {
+            color: var(--primary-color);
+            font-size: 20px;
+            margin-bottom: 15px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .form-group {
+            margin-bottom: 15px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 500;
+            color: var(--secondary-color);
+        }
+
+        .form-control {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid var(--border-color);
+            border-radius: 5px;
+            font-size: 16px;
+            transition: border-color 0.3s;
+        }
+
+        .form-control:focus {
+            outline: none;
+            border-color: var(--accent-color);
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2);
+        }
+        
+        textarea.form-control {
+            min-height: 120px;
+            resize: vertical;
+            font-family: 'Courier New', Courier, monospace;
+        }
+
+        .form-row {
+            display: flex;
+            flex-wrap: wrap;
+            margin: 0 -10px;
+        }
+
+        .form-col {
+            flex: 1;
+            padding: 0 10px;
+            min-width: 200px;
+        }
+
+        .button-group {
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+            margin-top: 20px;
+        }
+
+        .btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 5px;
+            font-size: 16px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.3s;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .btn:disabled {
+            background-color: #d1d5db;
+            cursor: not-allowed;
+        }
+
+        .btn-primary {
+            background-color: var(--primary-color);
+            color: white;
+        }
+
+        .btn-primary:hover:not(:disabled) {
+            background-color: #1d4ed8;
+        }
+        
+        .btn-secondary {
+            background-color: var(--success-color);
+            color: white;
+        }
+        
+        .btn-secondary:hover {
+             background-color: #0ca678;
+        }
+        
+        #resultadoPix {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin-top: 30px;
+            padding-top: 20px;
+            border-top: 1px solid var(--border-color);
+        }
+        
+        .resultado-wrapper {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 30px;
+            width: 100%;
+            align-items: flex-start;
+        }
+
+        .qr-code-container {
+            text-align: center;
+            flex-shrink: 0;
+        }
+        
+        .qr-code-container h3, .copia-cola-container h3 {
+            color: var(--primary-color);
+            margin-bottom: 15px;
+        }
+
+        #qrCodeImg {
+            width: 200px;
+            height: 200px;
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 10px;
+            background-color: white;
+        }
+        
+        .copia-cola-container {
+            flex-grow: 1;
+            min-width: 300px;
+        }
+
+        .spinner {
+            width: 20px;
+            height: 20px;
+            border: 3px solid rgba(255,255,255,0.3);
+            border-radius: 50%;
+            border-top-color: #fff;
+            animation: spin 1s ease-in-out infinite;
+            margin-right: 10px;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .notification {
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            padding: 12px 25px;
+            border-radius: 5px;
+            color: white;
+            font-weight: 500;
+            opacity: 0;
+            visibility: hidden;
+            transition: opacity 0.3s, visibility 0.3s;
+            z-index: 1001;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+
+        .show-notification {
+            opacity: 1;
+            visibility: visible;
+        }
+
+        /* Responsividade */
+        @media (max-width: 768px) {
+            .form-row {
+                flex-direction: column;
+            }
+            .form-col {
+                padding: 0;
+                margin-bottom: 15px;
+            }
+            .resultado-wrapper {
+                flex-direction: column;
+                align-items: center;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Criar QRCode PIX</h1>
+            <p>Preencha os dados abaixo para gerar um código PIX Copia e Cola e o QR Code correspondente.</p>
+        </div>
+
+        <form id="pixForm">
+            <!-- Campos hidden -->
+            <input type="hidden" id="qrECL" name="qrECL" value="Q">
+            <input type="hidden" id="qrCellSize" name="qrCellSize" value="8">
+            <input type="hidden" id="qrMargin" name="qrMargin" value="10">
+
+            <div class="section">
+                <h2>Dados para o PIX</h2>
+                <div class="form-row">
+                    <div class="form-col">
+                        <div class="form-group">
+                            <label for="pixKey">Chave PIX*</label>
+                            <input type="text" id="pixKey" name="pixKey" class="form-control" required placeholder="CPF, CNPJ, E-mail, Telefone ou Chave Aleatória">
+                        </div>
+                    </div>
+                    <div class="form-col">
+                       <div class="form-group">
+                            <label for="amount">Valor (R$)</label>
+                            <input type="text" id="amount" name="amount" class="form-control" placeholder="0,00 (Opcional)">
+                        </div>
+                    </div>
+                </div>
+                 <div class="form-row">
+                    <div class="form-col">
+                        <div class="form-group">
+                            <label for="merchantName">Nome do Recebedor*</label>
+                            <input type="text" id="merchantName" name="merchantName" class="form-control" required placeholder="Nome completo ou da empresa">
+                        </div>
+                    </div>
+                    <div class="form-col">
+                        <div class="form-group">
+                            <label for="merchantCity">Cidade do Recebedor*</label>
+                            <input type="text" id="merchantCity" name="merchantCity" class="form-control" required placeholder="Ex: Brasilia">
+                        </div>
+                    </div>
+                </div>
+                <div class="form-row">
+                     <div class="form-col">
+                        <div class="form-group">
+                            <label for="txid">Identificador (Opcional)</label>
+                            <input type="text" id="txid" name="txid" class="form-control" placeholder="ID da transação (letras e números)">
+                        </div>
+                    </div>
+                    <div class="form-col">
+                        <div class="form-group">
+                            <label for="description">Descrição (Opcional)</label>
+                            <input type="text" id="description" name="description" class="form-control" placeholder="Referente a...">
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="button-group">
+                <button type="submit" id="gerarBtn" class="btn btn-primary">
+                    <span id="btnText">Gerar Código</span>
+                    <div id="btnSpinner" class="spinner" style="display: none;"></div>
+                </button>
+            </div>
+        </form>
+
+        <!-- Área de Resultado -->
+        <div id="resultadoPix" style="display:none;">
+             <div class="resultado-wrapper">
+                 <div class="qr-code-container">
+                     <h3>QR Code PIX</h3>
+                     <img id="qrCodeImg" alt="QR Code PIX">
+                 </div>
+                 <div class="copia-cola-container">
+                     <h3>PIX Copia e Cola</h3>
+                     <div class="form-group">
+                        <textarea id="pixCopiaECola" class="form-control" readonly></textarea>
+                     </div>
+                     <button id="copyBtn" class="btn btn-secondary">Copiar Código</button>
+                 </div>
+             </div>
+        </div>
+        
+    </div>
+    
+    <!-- Notificação -->
+    <div id="notification" class="notification"></div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // Elementos do DOM
+            const pixForm = document.getElementById('pixForm');
+            const gerarBtn = document.getElementById('gerarBtn');
+            const btnText = document.getElementById('btnText');
+            const btnSpinner = document.getElementById('btnSpinner');
+            const resultadoPix = document.getElementById('resultadoPix');
+            const qrCodeImg = document.getElementById('qrCodeImg');
+            const pixCopiaECola = document.getElementById('pixCopiaECola');
+            const copyBtn = document.getElementById('copyBtn');
+            const notification = document.getElementById('notification');
+            const amountInput = document.getElementById('amount');
+            const txidInput = document.getElementById('txid');
+
+            // Formatação do campo de valor
+            amountInput.addEventListener('input', (e) => {
+                let value = e.target.value.replace(/\D/g, '');
+                if (!value) {
+                    e.target.value = '';
+                    return;
+                }
+                value = (parseInt(value, 10) / 100);
+                if (isNaN(value)) {
+                    e.target.value = '';
+                    return;
+                }
+                e.target.value = value.toLocaleString('pt-BR', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+            });
+            
+            // Validação do campo txid (identificador)
+            txidInput.addEventListener('input', (e) => {
+                // Remove caracteres especiais, permitindo apenas letras e números
+                e.target.value = e.target.value.replace(/[^a-zA-Z0-9]/g, '');
+            });
+
+
+            // Manipulador de envio do formulário
+            pixForm.addEventListener('submit', async function(event) {
+                event.preventDefault();
+
+                // Validação simples dos campos obrigatórios
+                const requiredFields = ['pixKey', 'merchantName', 'merchantCity'];
+                let isValid = true;
+                requiredFields.forEach(fieldId => {
+                    const field = document.getElementById(fieldId);
+                    if (!field.value.trim()) {
+                        isValid = false;
+                    }
+                });
+
+                if (!isValid) {
+                    mostrarNotificacao('Por favor, preencha todos os campos obrigatórios (*).', 'error');
+                    return;
+                }
+
+                // UI de carregamento
+                setLoading(true);
+
+                // Monta o payload para a API
+                const formData = new FormData(pixForm);
+                const amountValue = formData.get('amount').replace(/\./g, '').replace(',', '.');
+                const numericAmount = parseFloat(amountValue);
+
+                const payload = {
+                    pixKey: formData.get('pixKey'),
+                    merchantName: formData.get('merchantName'),
+                    merchantCity: formData.get('merchantCity'),
+                    amount: (numericAmount && numericAmount > 0) ? numericAmount.toFixed(2) : "",
+                    qrECL: formData.get('qrECL'),
+                    qrCellSize: parseInt(formData.get('qrCellSize'), 10),
+                    qrMargin: parseInt(formData.get('qrMargin'), 10),
+                };
+
+                // Adiciona campos opcionais apenas se tiverem valor
+                if (formData.get('txid')) {
+                    payload.txid = formData.get('txid');
+                }
+                if (formData.get('description')) {
+                    payload.description = formData.get('description');
+                }
+
+                // Chamada para a API
+                try {
+                    const response = await fetch('https://api.sl.app.br/v2/pix', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify(payload),
+                    });
+                    
+                    const result = await response.json();
+
+                    if (!response.ok) {
+                        const errorMessage = result.message || 'Ocorreu um erro ao gerar o PIX.';
+                        throw new Error(errorMessage);
+                    }
+                    
+                    // Valida a resposta e exibe os resultados
+                    if (!result.pixCopiaECola || !result.svgQrCode) {
+                        throw new Error(result.message || 'A resposta da API não contém os dados esperados.');
+                    }
+
+                    pixCopiaECola.value = result.pixCopiaECola;
+                    qrCodeImg.src = result.svgQrCode; // Atribui a string data:image diretamente
+                    resultadoPix.style.display = 'flex';
+
+                } catch (error) {
+                    console.error('Erro na API:', error);
+                    mostrarNotificacao(`Erro: ${error.message}`, 'error');
+                    resultadoPix.style.display = 'none';
+                } finally {
+                    setLoading(false);
+                }
+            });
+            
+            // Função para copiar o código
+            copyBtn.addEventListener('click', function() {
+                pixCopiaECola.select();
+                pixCopiaECola.setSelectionRange(0, 99999); // Para mobile
+
+                try {
+                    // Tenta usar a API de Clipboard mais moderna primeiro
+                    navigator.clipboard.writeText(pixCopiaECola.value).then(() => {
+                         mostrarNotificacao('Código copiado com sucesso!', 'success');
+                    }).catch(err => {
+                        // Se falhar, usa o método legado
+                        document.execCommand('copy');
+                        mostrarNotificacao('Código copiado com sucesso!', 'success');
+                    });
+                } catch (err) {
+                     // Fallback para navegadores que não suportam nenhuma das APIs
+                     mostrarNotificacao('Não foi possível copiar automaticamente.', 'error');
+                }
+            });
+
+            // Função para controlar o estado de loading do botão
+            function setLoading(isLoading) {
+                if (isLoading) {
+                    gerarBtn.disabled = true;
+                    btnText.style.display = 'none';
+                    btnSpinner.style.display = 'block';
+                } else {
+                    gerarBtn.disabled = false;
+                    btnText.style.display = 'inline';
+                    btnSpinner.style.display = 'none';
+                }
+            }
+            
+             // Função para mostrar notificação
+            function mostrarNotificacao(mensagem, tipo = 'success') {
+                notification.textContent = mensagem;
+                notification.style.backgroundColor = (tipo === 'error') ? 'var(--error-color)' : 'var(--success-color)';
+                notification.classList.add('show-notification');
+                
+                setTimeout(() => {
+                    notification.classList.remove('show-notification');
+                }, 3000);
+            }
+        });
+    </script>
+</body>
+</html>
