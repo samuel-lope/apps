@@ -143,8 +143,8 @@
     
     <div id="notification" class="notification"></div>
     <script>
-        // Armazena a nova página de impressão em uma variável para ser aberta em uma nova guia
-        const printPageContent = `
+        // Template da página de impressão com placeholders
+        const printPageTemplate = `
             <!DOCTYPE html>
             <html lang="pt-BR">
             <head>
@@ -153,11 +153,11 @@
                 <style>
                     @page { size: A4; margin: 0; }
                     body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; }
-                    .page { width: 210mm; height: 297mm; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; padding: 1cm; box-sizing: border-box; border: 1px solid #eee; }
+                    .page { width: 210mm; height: 297mm; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; padding: 1cm; box-sizing: border-box; }
                     .pix-logo { width: 150px; margin-bottom: 40px; }
-                    #printQrCode { width: 12cm; height: 12cm; max-width: 80%; object-fit: contain; }
-                    #printRecipientName { font-size: 24px; font-weight: bold; margin-top: 20px; word-break: break-word; }
-                    #printPixKey { font-size: 18px; margin-top: 10px; color: #555; word-break: break-all; }
+                    .qr-code { width: 12cm; height: 12cm; max-width: 80%; object-fit: contain; }
+                    .recipient-name { font-size: 24px; font-weight: bold; margin-top: 20px; word-break: break-word; }
+                    .pix-key { font-size: 18px; margin-top: 10px; color: #555; word-break: break-all; }
                     @media print {
                         body { display: block; }
                         .page { border: none; margin: 0; width: 100%; height: 100%; padding: 1cm 0;}
@@ -166,24 +166,15 @@
             </head>
             <body>
                 <div class="page">
-                    <img src="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjU2cHgiIGhlaWdodD0iMjU2cHgiIHZpZXdCb3g9IjAgMCAxMDI0IDEwMjQiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PHBhdGggZmlsbD0iIzMwYmJhYSIgZD0iTTgwMS4xMDIgMTkOC4wMDhjLTEyOS40NzItMTMuOTI3LTI2MC41NDQtNS4xMi0zODIuOTM4IDM5LjEyNWMtMTI1LjU2OCAyNS4zNDQtMjIyLjk3NiAxMDQuODE2LTI2Mi44NDggMjE4LjQ1M2MtMjkuNjMyIDg2LjY1Ni0yMC4xNzYgMTg2LjUzMyAyNS42IDQwNi4xNzZsLTI1LjYgNC4zMDljLTQwLjEyOC0yMTkuODQtMTguNzUyLTMzNi4xMjggMjUuNi00MzQuODA1YzM5Ljg0LTg3Ljg1IDEyNC45MjgtMTYwLjE1NSAyNTMuNzkyLTE4NS4xOTJDNTg5LjU2OCAxMjguMjYxIDcxMS40NzcgMTI4IDgzMy42MjEgMTQ4LjQ4IFY5Mi4xNmw4OC42NTYgNzEuNDI0bC04OC42NTYgNzEuNDI0di01Mi4zN2MtMTEyLjEyOC0xOS4yLT IzMS4yMTktMTkuNzM4LTMzMS41Mi0yLjIxM2MtMTI1LjU2OCAxNy40MDgtMjM1LjgyNCA4NC4yMjQtMjg0Ljc4NCAxODkuNjUzYy0zNC40MDYgNzQuMjQtNDAuNTI4IDE2Ny4wMTYtMTkuNjQ4IDM2My4yMzJsMjUuNi00LjMwNWMtMjMuODU2LTE5Mi45ODQtMTMuOTI4LTI4MC44MzIgMTguMDcxLTM1NS40MTNjMzcuOTM2LTg4LjQ3NCAxMjEuNDQ1LTE1NS42NDggMjM2LjczNi0xNzYuNTM0YzEwMy45MzYtMTguNzUyIDIwOS4yMDMtMTEuMTM2IDMwMy40ODgtNS4xMnY1NS4xOTJsODguNjU2LTcxLjQyNEw4MDEuMDcgMTQyLjg5djU1LjExM3ptLTQ5Ny40NiA2OTAuMjU1bC0yMi4xNjUtMjUuNi0yNS42IDIyLjE2NWMxMy45MjcgMTI5LjQ3MiA1LjEyIDI2MC41NDQgMzkuMTI1IDM4Mi45MzhjMjUuMzQ0IDEyNS41NjggMTA0LjgxNiAyMjIuOTc2IDIxOC40NTMgMjYyLjg0OGM4Ni42NTYgMjkuNjMyIDE4Ni41MzMgMjAuMTc2IDQwNi4xNzYtMjUuNmwtNC4zMDktMjUuNmMtMjE5Ljg0IDQwLjEyOC0zMzYuMTI4IDE4Ljc1Mi00MzQuODA1LTI1LjZjLTg3Ljg1LTM5Ljg0LTE2MC4xNTUtMTI0LjkyOC0xODUuMTkyLTI1My43OTJjLTEwLjEyMy01Ni43NTQtNy40MjQtMTEyLjU1MS0xLjIxNi0xNjMuNjY5em00NjUuNDg4IDM4LjQ3NWwxNi45Mi0zMy4xMDZsMjUuNiAxMy45MjdsLTE2LjkyIDMzLjEwNnpNNTM2LjEyMyAyNTYuMThsLTMzLjEwNiAxNi45MnYyNS42bDMzLjEwNi0xNi45MnYtMjUuNnptLTEzNS4wNjEgNTM2LjM5N2wtMjIuMTY1IDI1LjYgMy45NDYgMjUuNiAyMi4xNjUtMjUuNnoiLz48cGF0aCBmaWxsPSIjMzBiYmFhIiBkPSJNOTMzLjM4MSA2NzkuMTAzbC0yNS42IDEzLjkyN3YyNS42bDMyLjQzNy0xNi45MkM5MzYuNDEgNjkzLjY0IDkzNi4xMjMgNjg2LjQyNyA5MzMuMzgxIDY3OS4xMDN6TTQyMC45NjUgMjAyLjEzNWwxMS4xMzYtMzQuNDA1bDI1LjYgOC4xOTJsLTExLjEzNiAzNC40MDV6TTI0MC42MTMgNTg0LjM2N2wtMjUuNi0yMi4xNjVWNTM2LjYzbDI1LjYgMjIuMTY1em0yOTAuODA1LTIwNS4zMTJsLTI1LjYtMjIuMTY1bC0yMi4xNjUgMjUuNmwzLjE1MiAzLjE1MmwzMC42OC0xNC43NzFsOC4xOTItOC4xOTJ6TTgwOS4zMTcgMjM4LjM1M2wtMTQzLjg3Mi0xNDMuODcyaC0yNS42bDE0My44NzIgMTQzLjg3MnoiLz48L3N2Zz4=" alt="Logo PIX" class="pix-logo">
-                    <img id="printQrCode" alt="QR Code PIX">
-                    <p id="printRecipientName"></p>
-                    <p id="printPixKey"></p>
+                    <img src="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjU2cHgiIGhlaWdodD0iMjU2cHgiIHZpZXdCb3g9IjAgMCAxMDI0IDEwMjQiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PHBhdGggZmlsbD0iIzMwYmJhYSIgZD0iTTgwMS4xMDIgMTk4LjAwOGMtMTI5LjQ3Mi0xMy45MjctMjYwLjU0NC01LjEyLTM4Mi45MzggMzkuMTI1Yy0xMjUuNTY4IDI1LjM0NC0yMjIuOTc2IDEwNC44MTYtMjYyLjg0OCAyMTguNDUzYy0yOS42MzIgODYuNjU2LTIwLjE3NiAxODYuNTMzIDI1LjYgNDA2LjE3NmwtMjUuNiA0LjMwOWMtNDAuMTI4LTIxOS44NC0xOC43NTItMzM2LjEyOCAyNS42LTQzNC44MDVjMzkuODQtODcuODUgMTI0LjkyOC0xNjAuMTU1IDI1My43OTItMTg1LjE5MkM1ODkuNTY4IDEyOC4yNjEgNzExLjQ3NyAxMjggODMzLjYyMSAxNDguNDg5VjkyLjE2bC04OC42NTYgNzEuNDI0bC04OC42NTYgNzEuNDI0di01Mi4zN2MtMTEyLjEyOC0xOS4yLTIzMS4yMTktMTkuNzM4LTMzMS41Mi0yLjIxM2MtMTI1LjU2OCAxNy40MDgtMjM1LjgyNCA4NC4yMjQtMjg0Ljc4NCAxODkuNjUzYy0zNC40MDYgNzQuMjQtNDAuNTI4IDE2Ny4wMTYtMTkuNjQ4IDM2My4yMzJsMjUuNi00LjMwNWMtMjMuODU2LTE5Mi45ODQtMTMuOTI4LTI4MC44MzIgMTguMDcxLTM1NotaMTNjMzcuOTM2LTg4LjQ3NCAxMjEuNDQ1LTE1NS42NDggMjM2LjczNi0xNzYuNTM0YzEwMy45MzYtMTguNzUyIDIwOS4yMDMtMTEuMTM2IDMwMy40ODgtNS4xMnY1NS4xOTJsODguNjU2LTcxLjQyNEw4MDEuMDcgMTQyLjg5djU1LjExM3ptLTQ5Ny40NiA2OTAuMjU1bC0yMi4xNjUtMjUuNi0yNS42IDIyLjE2NWMxMy45MjcgMTI5LjQ3MiA1LjEyIDI2MC41NDQgMzkuMTI1IDM4Mi45MzhjMjUuMzQ0IDEyNS41NjggMTA0LjgxNiAyMjIuOTc2IDIxOC40NTMgMjYyLjg0OGM4Ni42NTYgMjkuNjMyIDE4Ni41MzMgMjAuMTc2IDQwNi4xNzYtMjUuNmwtNC4zMDktMjUuNmMtMjE5Ljg0IDQwLjEyOC0zMzYuMTI4IDE4Ljc1Mi00MzQuODA1LTI1LjZjLTg3Ljg1LTM5Ljg0LTE2MC4xNTUtMTI0LjkyOC0xODUuMTkyLTI1My43OTJjLTEwLjEyMy01Ni43NTQtNy40MjQtMTEyLjU1MS0xLjIxNi0xNjMuNjY5em00NjUuNDg4IDM4LjQ3NWwxNi45Mi0zMy4xMDZsMjUuNiAxMy45MjdsLTE2LjkyIDMzLjEwNnpNNTM2LjEyMyAyNTYuMThsLTMzLjEwNiAxNi45MnYyNS42bDMzLjEwNi0xNi45MnYtMjUuNnptLTEzNS4wNjEgNTM2LjM5N2wtMjIuMTY1IDI1LjYgMy45NDYgMjUuNiAyMi4xNjUtMjUuNnoiLz48cGF0aCBmaWxsPSIjMzBiYmFhIiBkPSJNOTMzLjM4MSA2NzkuMTAzbC0yNS42IDEzLjkyN3YyNS42bDMyLjQzNy0xNi45MkM5MzYuNDEgNjkzLjY0IDkzNi4xMjMgNjg2LjQyNyA5MzMuMzgxIDY3OS4xMDN6TTQyMC45NjUgMjAyLjEzNWwxMS4xMzYtMzQuNDA1bDI1LjYgOC4xOTJsLTExLjEzNiAzNC40MDV6TTI0MC42MTMgNTg0LjM2N2wtMjUuNi0yMi4xNjVWNTM2LjYzbDI1LjYgMjIuMTY1em0yOTAuODA1LTIwNS4zMTJsLTI1LjYtMjIuMTY1bC0yMi4xNjUgMjUuNmwzLjE1MiAzLjE1MmwzMC42OC0xNC43NzFsOC4xOTItOC4xOTJ6TTgwOS4zMTcgMjM4LjM1M2wtMTQzLjg3Mi0xNDMuODcyaC0yNS42bDE0My44NzIgMTQzLjg3MnoiLz48L3N2Zz4=" alt="Logo PIX" class="pix-logo">
+                    <img src="{{QR_CODE_SRC}}" alt="QR Code PIX" class="qr-code">
+                    <p class="recipient-name">{{RECIPIENT_NAME}}</p>
+                    <p class="pix-key">{{PIX_KEY}}</p>
                 </div>
                 <script>
-                    document.addEventListener('DOMContentLoaded', () => {
-                        const params = new URLSearchParams(window.location.search);
-                        const qrCodeSrc = params.get('qr');
-                        const recipientName = params.get('nome');
-                        const pixKey = params.get('chave');
-                        if (qrCodeSrc) {
-                            document.getElementById('printQrCode').src = qrCodeSrc;
-                            document.getElementById('printRecipientName').textContent = recipientName;
-                            document.getElementById('printPixKey').textContent = 'Chave: ' + pixKey;
-                            setTimeout(() => window.print(), 500);
-                        }
-                    });
+                    window.onload = function() {
+                        setTimeout(() => window.print(), 500);
+                    };
                 <\/script>
             </body>
             </html>
@@ -266,8 +257,19 @@
                     // Prepara o link para impressão
                     printQrLink.onclick = (e) => {
                         e.preventDefault();
+                        const qrCodeSrc = qrCodeImg.src;
+                        const recipientName = document.getElementById('merchantName').value;
+                        const pixKey = document.getElementById('pixKey').value;
+
+                        // Preenche o template com os dados
+                        const finalPrintContent = printPageTemplate
+                            .replace('{{QR_CODE_SRC}}', qrCodeSrc)
+                            .replace('{{RECIPIENT_NAME}}', recipientName)
+                            .replace('{{PIX_KEY}}', 'Chave PIX: ' + pixKey);
+                        
+                        // Abre a nova janela e escreve o conteúdo final
                         const printWindow = window.open('', '_blank');
-                        printWindow.document.write(printPageContent);
+                        printWindow.document.write(finalPrintContent);
                         printWindow.document.close();
                     };
                     
