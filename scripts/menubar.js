@@ -3,16 +3,23 @@
  *
  * Este script cria um menu lateral (sidebar) responsivo e o injeta em qualquer página
  * em que for chamado. O menu é configurável através de um array de objetos.
+ * Tipos de item suportados: 'link', 'imagem', 'mensagem'.
+ * author: IG:@samuellopes | X:@samlopes
+ * date: 06-2025
  */
 
 // --- ÁREA DE CONFIGURAÇÃO ---
 // Defina aqui os itens que aparecerão no seu menu.
-// Cada item é um objeto com duas propriedades: 'texto' e 'url'.
+// - { tipo: 'link', texto: '...', url: '...' } -> Item de navegação padrão.
+// - { tipo: 'imagem', src: '...', url: '...', alt: '...' } -> Imagem clicável (logo).
+// - { tipo: 'mensagem', texto: '...' } -> Texto simples para notas ou copyright.
 const menuItems = [
-    { texto: 'Página Inicial', url: 'index.html' },
-    { texto: 'QrCode PIX', url: 'pix.html' }
+    { tipo: 'imagem', src: 'https://placehold.co/200x50/333/ffffff?text=Sua+Logo', url: 'index.html', alt: 'Logo' },
+    { tipo: 'link', texto: 'Página Inicial', url: 'index.html' },
+    { tipo: 'link', texto: 'QRCode PIX', url: 'pix.html' },
+    { tipo: 'mensagem', texto: '© Samuel Lopes - 2025 Todos os direitos reservados.' },
+    { tipo: 'imagem', src: '../imgs/gihub.png', url: 'https://github.com/samuel-lope', alt: 'GitHub'}
 ];
-
 // --- LÓGICA DO MENU (não é necessário editar daqui para baixo) ---
 document.addEventListener('DOMContentLoaded', () => {
     // 1. Cria os elementos HTML que compõem o menu
@@ -30,13 +37,39 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const linkList = document.createElement('ul');
 
-    // 2. Popula a lista de links com base no array de configuração
+    // 2. Popula a lista de itens com base na configuração, tratando cada tipo
     menuItems.forEach(item => {
         const listItem = document.createElement('li');
-        const link = document.createElement('a');
-        link.textContent = item.texto;
-        link.href = item.url;
-        listItem.appendChild(link);
+
+        switch (item.tipo) {
+            case 'link':
+                const link = document.createElement('a');
+                link.textContent = item.texto;
+                link.href = item.url;
+                listItem.appendChild(link);
+                break;
+
+            case 'imagem':
+                const imgLink = document.createElement('a');
+                imgLink.href = item.url;
+
+                const img = document.createElement('img');
+                img.src = item.src;
+                img.alt = item.alt || 'Imagem do menu';
+                
+                imgLink.appendChild(img);
+                listItem.appendChild(imgLink);
+                listItem.classList.add('menu-item-imagem');
+                break;
+
+            case 'mensagem':
+                const message = document.createElement('span');
+                message.textContent = item.texto;
+                listItem.appendChild(message);
+                listItem.classList.add('menu-item-mensagem');
+                break;
+        }
+
         linkList.appendChild(listItem);
     });
 
@@ -92,12 +125,15 @@ document.addEventListener('DOMContentLoaded', () => {
             transition: transform 0.3s ease-in-out;
             z-index: 1000;
             padding-top: 80px; /* Espaço para os links não ficarem sob o ícone */
+            display: flex;
+            flex-direction: column;
         }
 
         #menu-sidebar-nav ul {
             list-style: none;
             padding: 0;
             margin: 0;
+            flex-grow: 1; /* Faz a lista de links crescer */
         }
 
         #menu-sidebar-nav a {
@@ -113,6 +149,28 @@ document.addEventListener('DOMContentLoaded', () => {
 
         #menu-sidebar-nav a:hover {
             background-color: #f5f5f5;
+        }
+
+        /* Estilos para item de IMAGEM */
+        .menu-item-imagem {
+            padding: 20px 40px; /* Espaçamento interno para a imagem respirar */
+            border-bottom: 1px solid #f0f0f0;
+        }
+        .menu-item-imagem img {
+            max-width: 100%;
+            height: auto;
+            display: block;
+        }
+        
+        /* Estilos para item de MENSAGEM */
+        .menu-item-mensagem {
+            padding: 20px 25px;
+            text-align: center;
+            margin-top: auto; /* Empurra a mensagem para o final */
+        }
+        .menu-item-mensagem span {
+            font-size: 0.8rem;
+            color: #888;
         }
 
         /* Lógica de ativação do menu */
@@ -135,7 +193,6 @@ document.addEventListener('DOMContentLoaded', () => {
     `;
 
     const styleSheet = document.createElement("style");
-    styleSheet.type = "text/css";
     styleSheet.innerText = styles;
     document.head.appendChild(styleSheet);
 
@@ -152,3 +209,4 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 });
+
