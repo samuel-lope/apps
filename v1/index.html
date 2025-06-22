@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gerador de Recibo</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f4f4;
+            margin: 0;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #fff;
+            border-radius: 8px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+        }
+
+        h1 {
+            text-align: center;
+        }
+
+        label {
+            font-weight: bold;
+        }
+
+        input, textarea {
+            width: 100%;
+            padding: 10px;
+            margin: 8px 0;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+
+        button {
+            width: 100%;
+            padding: 12px;
+            background-color: #28a745;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+
+        button:hover {
+            background-color: #218838;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>Gerador de Recibo</h1>
+
+    <label for="payer">Nome do Pagador:</label>
+    <input type="text" id="payer" placeholder="Digite o nome do pagador">
+
+    <label for="receiver">Nome do Recebedor:</label>
+    <input type="text" id="receiver" placeholder="Digite o nome do recebedor">
+
+    <label for="amount">Valor (R$):</label>
+    <input type="number" id="amount" placeholder="Digite o valor" step="1.00">
+
+    <label for="description">Finalidade do Pagamento (Descrição):</label>
+    <textarea id="description" placeholder="Digite a finalidade do pagamento"></textarea>
+
+    <label for="date">Data:</label>
+    <input type="date" id="date">
+
+    <button onclick="generateReceipt()">Gerar Recibo</button>
+</div>
+
+<script>
+    // Função para converter números em extenso (em português) até 100 mil reais
+    function numeroPorExtenso(valor) {
+        const unidades = ['zero', 'um', 'dois', 'três', 'quatro', 'cinco', 'seis', 'sete', 'oito', 'nove'];
+        const especiais = ['dez', 'onze', 'doze', 'treze', 'quatorze', 'quinze', 'dezesseis', 'dezessete', 'dezoito', 'dezenove'];
+        const dezenas = ['', '', 'vinte', 'trinta', 'quarenta', 'cinquenta', 'sessenta', 'setenta', 'oitenta', 'noventa'];
+        const centenas = ['', 'cem', 'duzentos', 'trezentos', 'quatrocentos', 'quinhentos', 'seiscentos', 'setecentos', 'oitocentos', 'novecentos'];
+
+        function numeroInteiroPorExtenso(numero) {
+            if (numero === 100) return 'cem';
+            if (numero < 10) return unidades[numero];
+            if (numero < 20) return especiais[numero - 10];
+            if (numero < 100) return dezenas[Math.floor(numero / 10)] + (numero % 10 !== 0 ? ' e ' + unidades[numero % 10] : '');
+            if (numero < 1000) return centenas[Math.floor(numero / 100)] + (numero % 100 !== 0 ? ' e ' + numeroInteiroPorExtenso(numero % 100) : '');
+            if (numero < 100000) {
+                const milhar = Math.floor(numero / 1000);
+                const resto = numero % 1000;
+                const milharExtenso = (milhar === 1 ? 'mil' : numeroInteiroPorExtenso(milhar) + ' mil');
+                return milharExtenso + (resto > 0 ? ' e ' + numeroInteiroPorExtenso(resto) : '');
+            }
+            return 'valor acima de 99999.99';
+        }
+
+        const [reais, centavos] = valor.toFixed(2).split('.').map(Number);
+
+        // Ajuste correto para singular e plural de "real" e "reais"
+        let extenso = `${numeroInteiroPorExtenso(reais)} ${reais > 1 ? 'reais' : 'real'}`;
+
+        if (centavos > 0) {
+            extenso += ` e ${numeroInteiroPorExtenso(centavos)} centavo${centavos > 1 ? 's' : ''}`;
+        }
+
+        return extenso;
+    }
+
+    function generateReceipt() {
+        const payer = document.getElementById('payer').value;
+        const receiver = document.getElementById('receiver').value;
+        const amount = document.getElementById('amount').value;
+        const description = document.getElementById('description').value;
+        const date = document.getElementById('date').value;
+
+        if (!payer || !receiver || !amount || !description || !date) {
+            alert('Por favor, preencha todos os campos.');
+            return;
+        }
+
+        // Corrigindo a conversão da data para evitar o ajuste do fuso horário
+        const [year, month, day] = date.split("-");
+        const formattedDate = `${day}/${month}/${year}`; // Formato dd/mm/yyyy
+
+        const formattedAmount = parseFloat(amount).toFixed(2);
+        const amountInWords = numeroPorExtenso(parseFloat(amount));
+
+        // Criação da janela popup
+        const popupWindow = window.open('', '_blank', 'width=600,height=400');
+
+        // Conteúdo da janela popup
+        popupWindow.document.write(`
+            <html>
+            <head>
+                <title>Recibo de Pagamento</title>
+                <style>
+                    body {
+                        font-family: "Courier New", Courier, monospace;
+                        font-size: 10pt;
+                        padding: 20px;
+                    }
+                    .receipt {
+                        border: 2px dashed #333;
+                        padding: 20px;
+                    }
+                    .receipt h2 {
+                        text-align: center;
+                        margin-bottom: 20px;
+                    }
+                    table {
+                        width: 100%;
+                        border-collapse: collapse;
+                        margin-top: 10px;
+                    }
+                    table, th, td {
+                        border: 1px solid black;
+                    }
+                    th, td {
+                        padding: 8px;
+                        font-size: 10pt;
+                        text-align: left;
+                    }
+                    .print-btn {
+                        display: block;
+                        margin: 20px 0;
+                        padding: 10px 20px;
+                        background-color: #007bff;
+                        color: white;
+                        text-align: center;
+                        text-decoration: none;
+                        border-radius: 4px;
+                        cursor: pointer;
+                    }
+                    .print-btn:hover {
+                        background-color: #0056b3;
+                    }
+                </style>
+            </head>
+            <body>
+                <div class="receipt">
+                    <h2>Recibo de Pagamento</h2>
+                    <table>
+                        <tr>
+                            <th>Recebi(emos) de:</th>
+                            <td>${payer}</td>
+                        </tr>
+                        <tr>
+                            <th>A quantia de:</th>
+                            <td>R$ ${formattedAmount} (${amountInWords})</td>
+                        </tr>
+                        <tr>
+                            <th>Referente a:</th>
+                            <td>${description}</td>
+                        </tr>
+                        <tr>
+                            <th>Pago a:</th>
+                            <td>${receiver}</td>
+                        </tr>
+                        <tr>
+                            <th>Data:</th>
+                            <td>${formattedDate}</td>
+                        </tr>
+                    </table>
+                    <p style="margin-top: 20px;"><strong>Assinatura do Recebedor:</strong> <br/> <span style="font-size: 7pt;">${receiver}</span> </p>
+                </div>
+                <a class="print-btn" href="javascript:window.print()">Imprimir Recibo</a>
+            </body>
+            </html>
+        `);
+
+        popupWindow.document.close(); // Fecha o documento para renderizar o conteúdo
+    }
+</script>
+
+</body>
+</html>
