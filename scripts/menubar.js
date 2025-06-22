@@ -4,22 +4,21 @@
  * Este script cria um menu lateral (sidebar) responsivo e o injeta em qualquer página
  * em que for chamado. O menu é configurável através de um array de objetos.
  * Tipos de item suportados: 'link', 'imagem', 'mensagem'.
- * author: IG:@samuellopes | X:@samlopes
- * date: 06-2025
  */
 
 // --- ÁREA DE CONFIGURAÇÃO ---
 // Defina aqui os itens que aparecerão no seu menu.
 // - { tipo: 'link', texto: '...', url: '...' } -> Item de navegação padrão.
-// - { tipo: 'imagem', src: '...', url: '...', alt: '...' } -> Imagem clicável (logo).
+// - { tipo: 'imagem', src: '...', url: '...', alt: '...', largura: '150px' } -> Imagem clicável (logo). O parâmetro 'largura' é opcional.
 // - { tipo: 'mensagem', texto: '...' } -> Texto simples para notas ou copyright.
 const menuItems = [
-    { tipo: 'imagem', src: 'https://placehold.co/200x50/333/ffffff?text=Sua+Logo', url: 'index.html', alt: 'Logo' },
+    { tipo: 'imagem', src: 'https://img.shields.io/badge/APPs-Samuel_Lopes-blue?style=flat-square', url: 'index.html', alt: 'Logo do site', largura: '150px' },
     { tipo: 'link', texto: 'Página Inicial', url: 'index.html' },
     { tipo: 'link', texto: 'QRCode PIX', url: 'pix.html' },
-    { tipo: 'mensagem', texto: '© Samuel Lopes - 2025 Todos os direitos reservados.' },
-    { tipo: 'imagem', src: '../imgs/gihub.png', url: 'https://github.com/samuel-lope', alt: 'GitHub'}
+    { tipo: 'mensagem', texto: '© Samuel Lopes - 2025' },
+    { tipo: 'imagem', src: 'https://img.shields.io/badge/GitHub-%23181717?style=flat-square&logo=github', url: 'https://github.com/samuel-lope', alt: 'GitHub', largura: '70px'}
 ];
+
 // --- LÓGICA DO MENU (não é necessário editar daqui para baixo) ---
 document.addEventListener('DOMContentLoaded', () => {
     // 1. Cria os elementos HTML que compõem o menu
@@ -56,6 +55,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 const img = document.createElement('img');
                 img.src = item.src;
                 img.alt = item.alt || 'Imagem do menu';
+
+                // NOVO: Aplica a largura customizada se ela for definida
+                if (item.largura) {
+                    img.style.width = item.largura;
+                }
                 
                 imgLink.appendChild(img);
                 listItem.appendChild(imgLink);
@@ -153,13 +157,19 @@ document.addEventListener('DOMContentLoaded', () => {
 
         /* Estilos para item de IMAGEM */
         .menu-item-imagem {
-            padding: 20px 40px; /* Espaçamento interno para a imagem respirar */
+            padding: 20px 0; /* Espaçamento vertical */
             border-bottom: 1px solid #f0f0f0;
+            text-align: center; /* Centraliza o link da imagem */
+        }
+        .menu-item-imagem a {
+            padding: 0; /* Remove padding do link da imagem */
+            border-bottom: none;
         }
         .menu-item-imagem img {
-            max-width: 100%;
+            max-width: 100%; /* Garante que a imagem nunca ultrapasse a largura do menu */
             height: auto;
-            display: block;
+            display: inline-block; /* Permite centralização */
+            vertical-align: middle;
         }
         
         /* Estilos para item de MENSAGEM */
