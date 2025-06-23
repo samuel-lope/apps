@@ -1,26 +1,50 @@
 /**
- * menu.js
+ * menubar.js
  *
  * Este script cria um menu lateral (sidebar) responsivo e o injeta em qualquer página
  * em que for chamado. O menu é configurável através de um array de objetos.
  * Tipos de item suportados: 'link', 'imagem', 'mensagem'.
+ *
+ * O script aceita um parâmetro de URL 'hide' para ocultar itens específicos do menu.
+ * Exemplo: <script src="menubar.js?hide=view01,view02"></script>
  */
 
 // --- ÁREA DE CONFIGURAÇÃO ---
 // Defina aqui os itens que aparecerão no seu menu.
-// - { tipo: 'link', texto: '...', url: '...' } -> Item de navegação padrão.
-// - { tipo: 'imagem', src: '...', url: '...', alt: '...', largura: '150px' } -> Imagem clicável (logo). O parâmetro 'largura' é opcional.
-// - { tipo: 'mensagem', texto: '...' } -> Texto simples para notas ou copyright.
+// - { tipo: 'link', texto: '...', url: '...', view: '...' } -> Item de navegação padrão.
+// - { tipo: 'imagem', src: '...', url: '...', alt: '...', largura: '...', view: '...' } -> Imagem clicável (logo).
+// - { tipo: 'mensagem', texto: '...', view: '...' } -> Texto simples para notas ou copyright.
+// O parâmetro 'view' é um identificador único para cada item.
 const menuItems = [
-    { tipo: 'imagem', src: 'https://img.shields.io/badge/APPs-Samuel_Lopes-blue?style=flat-square', url: 'index.html', alt: 'Logo do site', largura: '150px' },
-    { tipo: 'link', texto: 'Página Inicial', url: 'index.html' },
-    { tipo: 'link', texto: 'QRCode PIX', url: 'pix.html' },
-    { tipo: 'mensagem', texto: '© Samuel Lopes - 2025' },
-    { tipo: 'imagem', src: 'https://img.shields.io/badge/GitHub-%23181717?style=flat-square&logo=github', url: 'https://github.com/samuel-lope', alt: 'GitHub', largura: '70px'}
+    { tipo: 'imagem', src: 'https://img.shields.io/badge/APPs-Samuel_Lopes-blue?style=flat-square', url: 'index.html', alt: 'Logo do site', largura: '150px', view: 'logoPrincipal' },
+    { tipo: 'link', texto: 'Página Inicial', url: 'index.html', view: 'linkHome' },
+    { tipo: 'link', texto: 'QRCode PIX', url: 'pix.html', view: 'linkPix' },
+    { tipo: 'mensagem', texto: '© Samuel Lopes - 2025', view: 'copyright' },
+    { tipo: 'imagem', src: 'https://img.shields.io/badge/GitHub-%23181717?style=flat-square&logo=github', url: 'https://github.com/samuel-lope', alt: 'GitHub', largura: '70px', view: 'logoGithub'}
 ];
 
 // --- LÓGICA DO MENU (não é necessário editar daqui para baixo) ---
+
+// Função para obter os parâmetros da URL do próprio script
+function getScriptURLParams() {
+    const script = document.currentScript;
+    if (!script) return {};
+    
+    const url = new URL(script.src);
+    return new URLSearchParams(url.search);
+}
+
 document.addEventListener('DOMContentLoaded', () => {
+    // Obter os itens a serem ocultados a partir do parâmetro 'hide' na URL do script
+    const params = getScriptURLParams();
+    const itemsToHide = params.get('hide')?.split(',') || [];
+    
+    // Filtrar menuItems, removendo aqueles cujo 'view' está na lista de itens a ocultar
+    const visibleMenuItems = menuItems.filter(item => !itemsToHide.includes(item.view));
+
+    // Se não houver itens visíveis, não renderiza o menu
+    if (visibleMenuItems.length === 0) return;
+
     // 1. Cria os elementos HTML que compõem o menu
     const menuContainer = document.createElement('div');
     menuContainer.id = 'menu-dinamico-container';
@@ -36,8 +60,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const linkList = document.createElement('ul');
 
-    // 2. Popula a lista de itens com base na configuração, tratando cada tipo
-    menuItems.forEach(item => {
+    // 2. Popula a lista de itens com base na lista FILTRADA, tratando cada tipo
+    visibleMenuItems.forEach(item => {
         const listItem = document.createElement('li');
 
         switch (item.tipo) {
@@ -56,7 +80,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 img.src = item.src;
                 img.alt = item.alt || 'Imagem do menu';
 
-                // NOVO: Aplica a largura customizada se ela for definida
                 if (item.largura) {
                     img.style.width = item.largura;
                 }
