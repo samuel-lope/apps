@@ -14,14 +14,48 @@
 // Defina aqui os itens que aparecerão no seu menu.
 // O parâmetro 'view' é um identificador único para cada item.
 const menuItems = [
-    { tipo: 'imagem', src: 'https://img.shields.io/badge/APPs-Samuel_Lopes-blue?style=flat-square', url: 'index.html', alt: 'Logo do site', largura: '150px', view: 'fe873732' },
-    { tipo: 'link', texto: 'Página Inicial', url: 'index.html', view: 'fe873732' },
-    { tipo: 'link', texto: 'Criar Recibo', url: 'recibo.html', view: 'fe873732' },
-    { tipo: 'link', texto: 'QRCode PIX', url: 'pix.html', view: 'fe873732' },
-    { tipo: 'link', texto: 'Gerar Códigos', url: 'https://codegen.samuellopes.com.br', view: 'codeGen' },
-    { tipo: 'mensagem', texto: 'Mensagem de Teste', view: 'msgTeste' },
-    { tipo: 'mensagem', texto: '© Samuel Lopes - 2025', view: 'fe873732' },
-    { tipo: 'imagem', src: 'https://img.shields.io/badge/GitHub-%23181717?style=flat-square&logo=github', url: 'https://github.com/samuel-lope', alt: 'GitHub', largura: '70px', view: 'fe873732'}
+    {   tipo: 'imagem',
+        src: 'https://img.shields.io/badge/APPs-Samuel_Lopes-blue?style=flat-square',
+        url: 'index.html',
+        alt: 'Logo do site',
+        largura: '150px',
+        view: 'fe873732'
+    },
+    {   tipo: 'link',
+        texto: 'Página Inicial',
+        url: 'index.html',
+        view: 'fe873732'
+    },
+    {   tipo: 'link',
+        texto: 'Criar Recibo',
+        url: 'recibo.html',
+        view: 'fe873732'
+    },
+    {   tipo: 'link',
+        texto: 'QRCode PIX',
+        url: 'pix.html',
+        view: 'fe873732'
+    },
+    {   tipo: 'link',
+        texto: 'Gerar Códigos',
+        url: 'https://codegen.samuellopes.com.br',
+        view: 'codeGen'
+    },
+    {   tipo: 'mensagem',
+        texto: 'Mensagem de Teste',
+        view: 'msgTeste'
+    },
+    {   tipo: 'mensagem',
+        texto: '© Samuel Lopes - 2025',
+        view: 'fe873732'
+    },
+    {   tipo: 'imagem',
+        src: 'https://img.shields.io/badge/GitHub-%23181717?style=flat-square&logo=github',
+        url: 'https://github.com/samuel-lope',
+        alt: 'GitHub',
+        largura: '70px',
+        view: 'fe873732'
+    }
 ];
 
 // --- LÓGICA DO MENU (não é necessário editar daqui para baixo) ---
@@ -168,11 +202,11 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         #menu-sidebar-nav a {
             display: block;
-            padding: 18px 25px;
+            padding: 10px 25px;
             color: #444;
             text-decoration: none;
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-            font-size: 1.1rem;
+            font-size: 0.8rem;
             border-bottom: 1px solid #f0f0f0;
             transition: background-color 0.2s;
         }
