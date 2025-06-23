@@ -19,8 +19,8 @@ const menuItems = [
     { tipo: 'imagem', src: 'https://img.shields.io/badge/APPs-Samuel_Lopes-blue?style=flat-square', url: 'index.html', alt: 'Logo do site', largura: '150px', view: 'logoPrincipal' },
     { tipo: 'link', texto: 'Página Inicial', url: 'index.html', view: 'linkHome' },
     { tipo: 'link', texto: 'QRCode PIX', url: 'pix.html', view: 'linkPix' },
-    { tipo: 'mensagem', texto: '© Samuel Lopes - 2025', view: 'copyright' },
     { tipo: 'mensagem', texto: 'Mensagem de Teste', view: 'teste' },
+    { tipo: 'mensagem', texto: '© Samuel Lopes - 2025', view: 'copyright' },
     { tipo: 'imagem', src: 'https://img.shields.io/badge/GitHub-%23181717?style=flat-square&logo=github', url: 'https://github.com/samuel-lope', alt: 'GitHub', largura: '70px', view: 'logoGithub'}
 ];
 
@@ -28,19 +28,24 @@ const menuItems = [
 
 // Função para obter os parâmetros da URL do próprio script
 function getScriptURLParams() {
+    // document.currentScript só é válido durante a execução inicial do script.
     const script = document.currentScript;
-    if (!script) return {};
+    if (!script || !script.src) {
+        // Se não puder encontrar o script ou sua URL, retorna um objeto vazio de parâmetros.
+        return new URLSearchParams('');
+    }
     
+    // Usa a URL completa do script para extrair os parâmetros.
     const url = new URL(script.src);
-    return new URLSearchParams(url.search);
+    return url.searchParams;
 }
 
+// CORREÇÃO: Captura os parâmetros AQUI, fora do listener 'DOMContentLoaded'.
+const params = getScriptURLParams();
+const itemsToHide = params.get('hide')?.split(',') || [];
+
 document.addEventListener('DOMContentLoaded', () => {
-    // Obter os itens a serem ocultados a partir do parâmetro 'hide' na URL do script
-    const params = getScriptURLParams();
-    const itemsToHide = params.get('hide')?.split(',') || [];
-    
-    // Filtrar menuItems, removendo aqueles cujo 'view' está na lista de itens a ocultar
+    // USA a variável 'itemsToHide' que já foi capturada.
     const visibleMenuItems = menuItems.filter(item => !itemsToHide.includes(item.view));
 
     // Se não houver itens visíveis, não renderiza o menu
