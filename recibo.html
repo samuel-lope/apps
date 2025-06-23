@@ -1,0 +1,895 @@
+<!--
+author: @samuellopes | https://github.com/samuel-lope
+version: 0.0.1
+date: 06-2025
+-->
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gerador de Recibos</title>
+    <script src="./scripts/menubar.js?v=0.2&view=fe873732" defer></script>
+    <style>
+        :root {
+            --primary-color: #2563eb;
+            --secondary-color: #4b5563;
+            --accent-color: #3b82f6;
+            --bg-color: rgb(217, 217, 217);
+            --card-bg: #eeeeee;
+            --text-color: #1f2937;
+            --border-color: #e5e7eb;
+            --success-color: #10b981;
+            --error-color: #ef4444;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            line-height: 1.6;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: var(--card-bg);
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+            padding-bottom: 15px;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .header h1 {
+            color: var(--primary-color);
+            font-size: 28px;
+            margin-bottom: 10px;
+        }
+
+        .header p {
+            color: var(--secondary-color);
+            font-size: 16px;
+        }
+
+        .section {
+            margin-bottom: 25px;
+            padding: 20px;
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            background-color: #fafafa;
+        }
+
+        .section h2 {
+            color: var(--primary-color);
+            font-size: 20px;
+            margin-bottom: 15px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .form-group {
+            margin-bottom: 15px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 500;
+            color: var(--secondary-color);
+        }
+
+        .form-control {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid var(--border-color);
+            border-radius: 5px;
+            font-size: 16px;
+            transition: border-color 0.3s;
+        }
+
+        .form-control:focus {
+            outline: none;
+            border-color: var(--accent-color);
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2);
+        }
+
+        .form-row {
+            display: flex;
+            flex-wrap: wrap;
+            margin: 0 -10px;
+        }
+
+        .form-col {
+            flex: 1;
+            padding: 0 10px;
+            min-width: 200px;
+        }
+
+        select.form-control {
+            appearance: none;
+            background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
+            background-repeat: no-repeat;
+            background-position: right 10px center;
+            background-size: 16px;
+        }
+
+        textarea.form-control {
+            min-height: 100px;
+            resize: vertical;
+        }
+
+        .button-group {
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+            margin-top: 20px;
+        }
+
+        .btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 5px;
+            font-size: 16px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .btn-primary {
+            background-color: var(--primary-color);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background-color: #1d4ed8;
+        }
+
+        .btn-secondary {
+            background-color: #e5e7eb;
+            color: var(--secondary-color);
+        }
+
+        .btn-secondary:hover {
+            background-color: #d1d5db;
+        }
+
+        .btn-success {
+            background-color: var(--success-color);
+            color: white;
+        }
+
+        .btn-success:hover {
+            background-color: #0ca678;
+        }
+
+        .btn-danger {
+            background-color: var(--error-color);
+            color: white;
+        }
+
+        .btn-danger:hover {
+            background-color: #dc2626;
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+            overflow: auto;
+        }
+
+        .modal-content {
+            position: relative;
+            background-color: white;
+            margin: 50px auto;
+            padding: 20px;
+            width: 80%;
+            max-width: 800px;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+
+        .close {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            font-size: 24px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+
+        .preview-container {
+            background-color: white;
+            padding: 30px;
+            border: 1px solid #ddd;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            margin-top: 20px;
+            max-height: 70vh;
+            overflow-y: auto;
+        }
+
+        .preview-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid var(--primary-color);
+        }
+
+        .preview-title {
+            font-size: 24px;
+            color: var(--primary-color);
+            font-weight: bold;
+            text-transform: uppercase;
+            margin: 0;
+        }
+
+        .preview-number {
+            font-size: 18px;
+            color: var(--secondary-color);
+        }
+
+        .preview-value {
+            font-size: 24px;
+            font-weight: bold;
+            color: var(--primary-color);
+            text-align: center;
+            padding: 15px;
+            margin: 20px 0;
+            border: 2px solid var(--primary-color);
+            border-radius: 5px;
+        }
+
+        .preview-text {
+            font-size: 16px;
+            line-height: 1.6;
+            margin-bottom: 20px;
+        }
+
+        .preview-footer {
+            margin-top: 40px;
+            text-align: center;
+        }
+
+        .signature-line {
+            margin: 60px auto 0;
+            width: 70%;
+            border-top: 1px solid black;
+            text-align: center;
+            padding-top: 10px;
+        }
+
+        .alert {
+            padding: 15px;
+            margin-bottom: 20px;
+            border-radius: 5px;
+            color: white;
+            font-weight: 500;
+        }
+
+        .alert-success {
+            background-color: var(--success-color);
+        }
+
+        .alert-error {
+            background-color: var(--error-color);
+        }
+
+        .notification {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            padding: 15px;
+            border-radius: 5px;
+            color: white;
+            opacity: 0;
+            transition: opacity 0.3s;
+            z-index: 1001;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+
+        .show-notification {
+            opacity: 1;
+        }
+
+        /* Responsividade */
+        @media (max-width: 768px) {
+            .form-row {
+                flex-direction: column;
+            }
+            
+            .form-col {
+                margin-bottom: 15px;
+            }
+            
+            .modal-content {
+                width: 95%;
+                margin: 20px auto;
+            }
+            
+            .button-group {
+                flex-direction: column;
+            }
+            
+            .btn {
+                width: 100%;
+                margin-bottom: 10px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Gerador de Recibos</h1>
+            <p>Crie recibos profissionais de forma rápida e fácil</p>
+        </div>
+
+        <form id="reciboForm">
+            <div class="section">
+                <h2>Dados do Pagador</h2>
+                <div class="form-row">
+                    <div class="form-col">
+                        <div class="form-group">
+                            <label for="nomePagador">Nome*</label>
+                            <input type="text" id="nomePagador" class="form-control" required>
+                        </div>
+                    </div>
+                    <div class="form-col">
+                        <div class="form-group">
+                            <label for="cpfPagador">CPF/CNPJ</label>
+                            <input type="text" id="cpfPagador" class="form-control">
+                        </div>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label for="enderecoPagador">Endereço</label>
+                    <input type="text" id="enderecoPagador" class="form-control">
+                </div>
+            </div>
+
+            <div class="section">
+                <h2>Dados do Recebedor</h2>
+                <div class="form-row">
+                    <div class="form-col">
+                        <div class="form-group">
+                            <label for="nomeRecebedor">Nome*</label>
+                            <input type="text" id="nomeRecebedor" class="form-control" required>
+                        </div>
+                    </div>
+                    <div class="form-col">
+                        <div class="form-group">
+                            <label for="cpfRecebedor">CPF/CNPJ</label>
+                            <input type="text" id="cpfRecebedor" class="form-control">
+                        </div>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label for="enderecoRecebedor">Endereço</label>
+                    <input type="text" id="enderecoRecebedor" class="form-control">
+                </div>
+            </div>
+
+            <div class="section">
+                <h2>Informações do Pagamento</h2>
+                <div class="form-row">
+                    <div class="form-col">
+                        <div class="form-group">
+                            <label for="valor">Valor (R$)*</label>
+                            <input type="text" id="valor" class="form-control" required>
+                        </div>
+                    </div>
+                    <div class="form-col">
+                        <div class="form-group">
+                            <label for="formaPagamento">Forma de Pagamento</label>
+                            <select id="formaPagamento" class="form-control">
+                                <option value="Dinheiro">Dinheiro</option>
+                                <option value="PIX">PIX</option>
+                                <option value="Transferência Bancária">Transferência Bancária</option>
+                                <option value="Cartão de Crédito">Cartão de Crédito</option>
+                                <option value="Cartão de Débito">Cartão de Débito</option>
+                                <option value="Cheque">Cheque</option>
+                                <option value="Boleto">Boleto</option>
+                                <option value="Outro">Outro</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label for="referente">Referente a</label>
+                    <input type="text" id="referente" class="form-control">
+                </div>
+                <div class="form-row">
+                    <div class="form-col">
+                        <div class="form-group">
+                            <label for="data">Data*</label>
+                            <input type="date" id="data" class="form-control" required>
+                        </div>
+                    </div>
+                    <div class="form-col">
+                        <div class="form-group">
+                            <label for="cidade">Cidade</label>
+                            <input type="text" id="cidade" class="form-control">
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="section">
+                <h2>Observações</h2>
+                <div class="form-group">
+                    <textarea id="observacoes" class="form-control" placeholder="Observações adicionais (opcional)"></textarea>
+                </div>
+            </div>
+
+            <div class="button-group">
+                <button type="button" id="limparBtn" class="btn btn-secondary">Limpar</button>
+                <button type="button" id="previewBtn" class="btn btn-primary">Pré-visualizar</button>
+                <button type="button" id="gerarBtn" class="btn btn-success">Gerar Recibo</button>
+            </div>
+        </form>
+    </div>
+
+    <!-- Modal de Pré-visualização -->
+    <div id="previewModal" class="modal">
+        <div class="modal-content">
+            <span class="close" id="closePreview">&times;</span>
+            <h2 style="margin-bottom: 20px; color: var(--primary-color);">Pré-visualização do Recibo</h2>
+            <div id="previewContent" class="preview-container"></div>
+            <div class="button-group">
+                <button id="imprimirPreviewBtn" class="btn btn-primary">Imprimir</button>
+                <button id="downloadPreviewBtn" class="btn btn-success">Download PDF</button>
+                <button id="fecharPreviewBtn" class="btn btn-secondary">Fechar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Notificação -->
+    <div id="notification" class="notification"></div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // Configurar data atual como padrão
+            const today = new Date();
+            const formattedDate = today.toISOString().substr(0, 10);
+            document.getElementById('data').value = formattedDate;
+
+            // Elementos DOM
+            const form = document.getElementById('reciboForm');
+            const previewBtn = document.getElementById('previewBtn');
+            const gerarBtn = document.getElementById('gerarBtn');
+            const limparBtn = document.getElementById('limparBtn');
+            const previewModal = document.getElementById('previewModal');
+            const closePreview = document.getElementById('closePreview');
+            const fecharPreviewBtn = document.getElementById('fecharPreviewBtn');
+            const imprimirPreviewBtn = document.getElementById('imprimirPreviewBtn');
+            const downloadPreviewBtn = document.getElementById('downloadPreviewBtn');
+            const notification = document.getElementById('notification');
+
+            // Validação e formatação de valor
+            const valorInput = document.getElementById('valor');
+            valorInput.addEventListener('input', function() {
+                let value = this.value.replace(/\D/g, '');
+                if (value.length > 2) {
+                    const intPart = value.slice(0, -2);
+                    const decPart = value.slice(-2);
+                    this.value = intPart + ',' + decPart;
+                } else if (value.length === 2) {
+                    this.value = '0,' + value;
+                } else if (value.length === 1) {
+                    this.value = '0,0' + value;
+                } else {
+                    this.value = '';
+                }
+            });
+
+            // Formatação de CPF/CNPJ
+            function formatarCPFCNPJ(campo) {
+                campo.addEventListener('input', function() {
+                    let valor = this.value.replace(/\D/g, '');
+                    
+                    if (valor.length <= 11) {
+                        // CPF
+                        if (valor.length > 9) {
+                            this.value = valor.replace(/(\d{3})(\d{3})(\d{3})(\d{0,2})/, '$1.$2.$3-$4');
+                        } else if (valor.length > 6) {
+                            this.value = valor.replace(/(\d{3})(\d{3})(\d{0,3})/, '$1.$2.$3');
+                        } else if (valor.length > 3) {
+                            this.value = valor.replace(/(\d{3})(\d{0,3})/, '$1.$2');
+                        } else {
+                            this.value = valor;
+                        }
+                    } else {
+                        // CNPJ
+                        if (valor.length > 12) {
+                            this.value = valor.replace(/(\d{2})(\d{3})(\d{3})(\d{4})(\d{0,2})/, '$1.$2.$3/$4-$5');
+                        } else if (valor.length > 8) {
+                            this.value = valor.replace(/(\d{2})(\d{3})(\d{3})(\d{0,4})/, '$1.$2.$3/$4');
+                        } else if (valor.length > 5) {
+                            this.value = valor.replace(/(\d{2})(\d{3})(\d{0,3})/, '$1.$2.$3');
+                        } else if (valor.length > 2) {
+                            this.value = valor.replace(/(\d{2})(\d{0,3})/, '$1.$2');
+                        } else {
+                            this.value = valor;
+                        }
+                    }
+                });
+            }
+
+            formatarCPFCNPJ(document.getElementById('cpfPagador'));
+            formatarCPFCNPJ(document.getElementById('cpfRecebedor'));
+
+            // Validar formulário
+            function validarFormulario() {
+                const camposObrigatorios = ['nomePagador', 'nomeRecebedor', 'valor', 'data'];
+                let valido = true;
+                
+                camposObrigatorios.forEach(campo => {
+                    const element = document.getElementById(campo);
+                    if (!element.value.trim()) {
+                        element.classList.add('error');
+                        valido = false;
+                    } else {
+                        element.classList.remove('error');
+                    }
+                });
+
+                // Validar formato do valor
+                const valorRegex = /^[0-9]+,[0-9]{2}$|^[0-9]+$/;
+                if (!valorRegex.test(valorInput.value.trim()) && valorInput.value.trim() !== '') {
+                    valorInput.classList.add('error');
+                    valido = false;
+                    mostrarNotificacao('O valor deve estar no formato correto (ex: 100,00)', 'error');
+                }
+
+                return valido;
+            }
+
+            // Mostrar notificação
+            function mostrarNotificacao(mensagem, tipo) {
+                notification.textContent = mensagem;
+                notification.className = 'notification show-notification';
+                
+                if (tipo === 'success') {
+                    notification.style.backgroundColor = 'var(--success-color)';
+                } else {
+                    notification.style.backgroundColor = 'var(--error-color)';
+                }
+                
+                setTimeout(() => {
+                    notification.className = 'notification';
+                }, 3000);
+            }
+
+            // Formatar valor para exibição
+            function formatarValorParaExibicao(valor) {
+                if (!valor) return '0,00';
+                valor = valor.replace(/\./g, '').replace(',', '.');
+                return parseFloat(valor).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+            }
+
+            // Converter valor para extenso
+            function valorPorExtenso(valor) {
+    if (!valor) return 'zero reais';
+    
+    // Converte para número
+    valor = valor.replace(/\./g, '').replace(',', '.');
+    valor = parseFloat(valor);
+    
+    if (isNaN(valor)) return 'valor inválido';
+    
+    // Separar parte inteira e decimal
+    const parteInteira = Math.floor(valor);
+    const parteDecimal = Math.round((valor - parteInteira) * 100);
+    
+    const unidades = ['', 'um', 'dois', 'três', 'quatro', 'cinco', 'seis', 'sete', 'oito', 'nove'];
+    const dezADezenove = ['dez', 'onze', 'doze', 'treze', 'quatorze', 'quinze', 'dezesseis', 'dezessete', 'dezoito', 'dezenove'];
+    const dezenas = ['', '', 'vinte', 'trinta', 'quarenta', 'cinquenta', 'sessenta', 'setenta', 'oitenta', 'noventa'];
+    const centenas = ['', 'cento', 'duzentos', 'trezentos', 'quatrocentos', 'quinhentos', 'seiscentos', 'setecentos', 'oitocentos', 'novecentos'];
+    
+    function converterGrupo(numero) {
+        if (numero === 0) return '';
+        if (numero === 100) return 'cem';
+        if (numero < 10) return unidades[numero];
+        if (numero < 20) return dezADezenove[numero - 10];
+        if (numero < 100) {
+            const dezena = Math.floor(numero / 10);
+            const unidade = numero % 10;
+            return dezenas[dezena] + (unidade ? ' e ' + unidades[unidade] : '');
+        }
+        const centena = Math.floor(numero / 100);
+        const resto = numero % 100;
+        return centenas[centena] + (resto ? ' e ' + converterGrupo(resto) : '');
+    }
+    
+    function converterNumeroCompleto(numero) {
+        if (numero === 0) return 'zero';
+        
+        const grupos = [];
+        const nomesGrupos = ['', 'mil', 'milhão', 'bilhão', 'trilhão'];
+        const nomesGruposPlural = ['', 'mil', 'milhões', 'bilhões', 'trilhões'];
+        
+        let resultado = '';
+        
+        // Divide o número em grupos de 3 dígitos
+        let numeroStr = String(numero);
+        while (numeroStr.length > 0) {
+            const tamanho = Math.min(3, numeroStr.length);
+            grupos.unshift(parseInt(numeroStr.substring(numeroStr.length - tamanho)));
+            numeroStr = numeroStr.substring(0, numeroStr.length - tamanho);
+        }
+        
+        // Converte cada grupo
+        for (let i = 0; i < grupos.length; i++) {
+            const valor = grupos[i];
+            const posicao = grupos.length - 1 - i;
+            
+            if (valor !== 0) {
+                const nomeGrupo = valor === 1 && posicao !== 0 ? nomesGrupos[posicao] : nomesGruposPlural[posicao];
+                
+                if (resultado !== '') {
+                    // Se o valor for menor que 100, adiciona "e"
+                    if (valor < 100) {
+                        resultado += ' e ';
+                    } else {
+                        // Verifica se deve usar vírgula ou "e"
+                        const proximoGrupoTemValor = grupos.slice(i + 1).some(g => g !== 0);
+                        resultado += proximoGrupoTemValor ? ', ' : ' e ';
+                    }
+                }
+                
+                resultado += converterGrupo(valor);
+                if (nomeGrupo !== '') {
+                    resultado += ' ' + nomeGrupo;
+                }
+            }
+        }
+        
+        return resultado;
+    }
+    
+    let extenso = '';
+    
+    if (parteInteira === 0 && parteDecimal === 0) {
+        return 'zero reais';
+    }
+    
+    if (parteInteira > 0) {
+        extenso = converterNumeroCompleto(parteInteira);
+        extenso += parteInteira === 1 ? ' real' : ' reais';
+    }
+    
+    if (parteDecimal > 0) {
+        if (parteInteira > 0) {
+            extenso += ' e ';
+        }
+        
+        if (parteDecimal === 1) {
+            extenso += 'um centavo';
+        } else {
+            extenso += converterGrupo(parteDecimal) + ' centavos';
+        }
+    }
+    
+    return extenso;
+}
+            // Gerar HTML do recibo
+            function gerarHTMLRecibo() {
+                const nomePagador = document.getElementById('nomePagador').value;
+                const cpfPagador = document.getElementById('cpfPagador').value;
+                const enderecoPagador = document.getElementById('enderecoPagador').value;
+                const nomeRecebedor = document.getElementById('nomeRecebedor').value;
+                const cpfRecebedor = document.getElementById('cpfRecebedor').value;
+                const enderecoRecebedor = document.getElementById('enderecoRecebedor').value;
+                const valor = document.getElementById('valor').value;
+                const referente = document.getElementById('referente').value;
+                const formaPagamento = document.getElementById('formaPagamento').value;
+                const data = document.getElementById('data').value;
+                const cidade = document.getElementById('cidade').value;
+                const observacoes = document.getElementById('observacoes').value;
+
+                // Formatar data
+                const dataObj = new Date(data);
+                const dataFormatada = dataObj.toLocaleDateString('pt-BR');
+
+                // Número do recibo (usando timestamp)
+                const numeroRecibo = new Date().getTime().toString().slice(-8);
+
+                // Formatar valor
+                const valorFormatado = formatarValorParaExibicao(valor);
+                const valorExtenso = valorPorExtenso(valor);
+
+                let html = `
+                    <div class="preview-header">
+                        <h1 class="preview-title">Recibo</h1>
+                        <div class="preview-number">Nº ${numeroRecibo}</div>
+                    </div>
+                    
+                    <div class="preview-value">R$ ${valorFormatado}</div>
+                    
+                    <div class="preview-text">
+                        <p>Recebi de <strong>${nomePagador}</strong>${cpfPagador ? `, CPF/CNPJ: ${cpfPagador}` : ''}${enderecoPagador ? `, residente em ${enderecoPagador}` : ''}, a quantia de <strong>R$ ${valorFormatado}</strong> (${valorExtenso})${referente ? `, referente a ${referente}` : ''}, pago através de <strong>${formaPagamento}</strong>.</p>
+                `;
+
+                html += `
+                    <p style="margin-top: 20px;"><strong>Dados do Recebedor:</strong></p>
+                    <p>Nome: ${nomeRecebedor}</p>
+                `;
+
+                if (cpfRecebedor) {
+                    html += `<p>CPF/CNPJ: ${cpfRecebedor}</p>`;
+                }
+
+                if (enderecoRecebedor) {
+                    html += `<p>Endereço: ${enderecoRecebedor}</p>`;
+                }
+
+                if (observacoes) {
+                    html += `
+                        <p style="margin-top: 20px;"><strong>Observações:</strong></p>
+                        <p>${observacoes}</p>
+                    `;
+                }
+
+                html += `
+                    </div>
+                    
+                    <div class="preview-footer">
+                        <p>${cidade ? cidade + ', ' : ''}${dataFormatada}</p>
+                        
+                        <div class="signature-line">
+                            ${nomeRecebedor}
+                        </div>
+                    </div>
+                `;
+
+                return html;
+            }
+
+            // Exibir modal de pré-visualização
+            function exibirPreview() {
+                if (!validarFormulario()) {
+                    mostrarNotificacao('Por favor, preencha todos os campos obrigatórios.', 'error');
+                    return;
+                }
+                
+                const previewContent = document.getElementById('previewContent');
+                previewContent.innerHTML = gerarHTMLRecibo();
+                previewModal.style.display = 'block';
+            }
+
+            // Imprimir recibo
+            function imprimirRecibo() {
+                const conteudo = document.getElementById('previewContent').innerHTML;
+                const janela = window.open('', '', 'width=800,height=600');
+                janela.document.write(`
+                    <html>
+                        <head>
+                            <title>Recibo</title>
+                            <style>
+                                body {
+                                    font-family: Arial, sans-serif;
+                                    padding: 20px;
+                                    line-height: 1.6;
+                                }
+                                .preview-header {
+                                    display: flex;
+                                    justify-content: space-between;
+                                    align-items: center;
+                                    margin-bottom: 20px;
+                                    padding-bottom: 10px;
+                                    border-bottom: 2px solid #2563eb;
+                                }
+                                .preview-title {
+                                    font-size: 24px;
+                                    color: #2563eb;
+                                    font-weight: bold;
+                                    text-transform: uppercase;
+                                    margin: 0;
+                                }
+                                .preview-number {
+                                    font-size: 18px;
+                                    color: #4b5563;
+                                }
+                                .preview-value {
+                                    font-size: 24px;
+                                    font-weight: bold;
+                                    color: #2563eb;
+                                    text-align: center;
+                                    padding: 15px;
+                                    margin: 20px 0;
+                                    border: 2px solid #2563eb;
+                                    border-radius: 5px;
+                                }
+                                .preview-text {
+                                    font-size: 16px;
+                                    line-height: 1.6;
+                                    margin-bottom: 20px;
+                                }
+                                .preview-footer {
+                                    margin-top: 40px;
+                                    text-align: center;
+                                }
+                                .signature-line {
+                                    margin: 60px auto 0;
+                                    width: 70%;
+                                    border-top: 1px solid black;
+                                    text-align: center;
+                                    padding-top: 10px;
+                                }
+                                @media print {
+                                    body {
+                                        padding: 0;
+                                    }
+                                }
+                            </style>
+                        </head>
+                        <body>
+                            ${conteudo}
+                        </body>
+                    </html>
+                `);
+                janela.document.close();
+                setTimeout(() => {
+                    janela.janela.print();
+                    janela.close();
+                }, 500);
+            }
+
+            // Função para gerar PDF (mockup - em uma aplicação real, usaria uma biblioteca como jsPDF)
+            function gerarPDF() {
+                mostrarNotificacao('Iniciando download do PDF...', 'success');
+                // Aqui em uma implementação real seria usado jsPDF ou outra biblioteca
+                // Para este exemplo, apenas simularemos o download
+                setTimeout(() => {
+                    mostrarNotificacao('PDF gerado com sucesso!', 'success');
+                }, 1000);
+            }
+
+            // Limpar formulário
+            function limparFormulario() {
+                form.reset();
+                // Restaurar data atual
+                document.getElementById('data').value = formattedDate;
+                mostrarNotificacao('Formulário limpo com sucesso!', 'success');
+            }
+
+            // Event Listeners
+            previewBtn.addEventListener('click', exibirPreview);
+            gerarBtn.addEventListener('click', exibirPreview);
+            limparBtn.addEventListener('click', limparFormulario);
+            closePreview.addEventListener('click', () => previewModal.style.display = 'none');
+            fecharPreviewBtn.addEventListener('click', () => previewModal.style.display = 'none');
+            imprimirPreviewBtn.addEventListener('click', imprimirRecibo);
+            downloadPreviewBtn.addEventListener('click', gerarPDF);
+
+            // Fechar modal ao clicar fora
+            window.addEventListener('click', function(event) {
+                if (event.target === previewModal) {
+                    previewModal.style.display = 'none';
+                }
+            });
+        });
+    </script>
+</body>
+</html>
+
