@@ -18,6 +18,7 @@ const menuItems = [
     { tipo: 'link', texto: 'Página Inicial', url: 'index.html', view: 'fe873732' },
     { tipo: 'link', texto: 'Criar Recibo', url: 'recibo.html', view: 'fe873732' },
     { tipo: 'link', texto: 'QRCode PIX', url: 'pix.html', view: 'fe873732' },
+    { tipo: 'link', texto: 'Gerar Códigos', url: 'https://codegen.samuellopes.com.br', view: 'codeGen' },
     { tipo: 'mensagem', texto: 'Mensagem de Teste', view: 'msgTeste' },
     { tipo: 'mensagem', texto: '© Samuel Lopes - 2025', view: 'fe873732' },
     { tipo: 'imagem', src: 'https://img.shields.io/badge/GitHub-%23181717?style=flat-square&logo=github', url: 'https://github.com/samuel-lope', alt: 'GitHub', largura: '70px', view: 'fe873732'}
