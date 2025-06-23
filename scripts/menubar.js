@@ -14,12 +14,12 @@
 // Defina aqui os itens que aparecerão no seu menu.
 // O parâmetro 'view' é um identificador único para cada item.
 const menuItems = [
-    { tipo: 'imagem', src: 'https://img.shields.io/badge/APPs-Samuel_Lopes-blue?style=flat-square', url: 'index.html', alt: 'Logo do site', largura: '150px', view: 'logoPrincipal' },
-    { tipo: 'link', texto: 'Página Inicial', url: 'index.html', view: 'linkHome' },
-    { tipo: 'link', texto: 'QRCode PIX', url: 'pix.html', view: 'linkPix' },
+    { tipo: 'imagem', src: 'https://img.shields.io/badge/APPs-Samuel_Lopes-blue?style=flat-square', url: 'index.html', alt: 'Logo do site', largura: '150px', view: 'fe873732' },
+    { tipo: 'link', texto: 'Página Inicial', url: 'index.html', view: 'fe873732' },
+    { tipo: 'link', texto: 'QRCode PIX', url: 'pix.html', view: 'fe873732' },
     { tipo: 'mensagem', texto: 'Mensagem de Teste', view: 'msgTeste' },
-    { tipo: 'mensagem', texto: '© Samuel Lopes - 2025', view: 'copyright' },
-    { tipo: 'imagem', src: 'https://img.shields.io/badge/GitHub-%23181717?style=flat-square&logo=github', url: 'https://github.com/samuel-lope', alt: 'GitHub', largura: '70px', view: 'logoGithub'}
+    { tipo: 'mensagem', texto: '© Samuel Lopes - 2025', view: 'fe873732' },
+    { tipo: 'imagem', src: 'https://img.shields.io/badge/GitHub-%23181717?style=flat-square&logo=github', url: 'https://github.com/samuel-lope', alt: 'GitHub', largura: '70px', view: 'fe873732'}
 ];
 
 // --- LÓGICA DO MENU (não é necessário editar daqui para baixo) ---
