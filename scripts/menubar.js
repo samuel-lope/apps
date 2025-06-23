@@ -5,21 +5,19 @@
  * em que for chamado. O menu é configurável através de um array de objetos.
  * Tipos de item suportados: 'link', 'imagem', 'mensagem'.
  *
- * O script aceita um parâmetro de URL 'hide' para ocultar itens específicos do menu.
- * Exemplo: <script src="menubar.js?hide=view01,view02"></script>
+ * O script aceita parâmetros de URL para controlar a visibilidade dos itens:
+ * - 'view': Mostra APENAS os itens especificados. Ex: menubar.js?view=item01,item02
+ * - 'hide': Oculta os itens especificados (usado se 'view' não estiver presente). Ex: menubar.js?hide=item03
  */
 
 // --- ÁREA DE CONFIGURAÇÃO ---
 // Defina aqui os itens que aparecerão no seu menu.
-// - { tipo: 'link', texto: '...', url: '...', view: '...' } -> Item de navegação padrão.
-// - { tipo: 'imagem', src: '...', url: '...', alt: '...', largura: '...', view: '...' } -> Imagem clicável (logo).
-// - { tipo: 'mensagem', texto: '...', view: '...' } -> Texto simples para notas ou copyright.
 // O parâmetro 'view' é um identificador único para cada item.
 const menuItems = [
     { tipo: 'imagem', src: 'https://img.shields.io/badge/APPs-Samuel_Lopes-blue?style=flat-square', url: 'index.html', alt: 'Logo do site', largura: '150px', view: 'logoPrincipal' },
     { tipo: 'link', texto: 'Página Inicial', url: 'index.html', view: 'linkHome' },
     { tipo: 'link', texto: 'QRCode PIX', url: 'pix.html', view: 'linkPix' },
-    { tipo: 'mensagem', texto: 'Mensagem de Teste', view: 'teste' },
+    { tipo: 'mensagem', texto: 'Mensagem de Teste', view: 'msgTeste' },
     { tipo: 'mensagem', texto: '© Samuel Lopes - 2025', view: 'copyright' },
     { tipo: 'imagem', src: 'https://img.shields.io/badge/GitHub-%23181717?style=flat-square&logo=github', url: 'https://github.com/samuel-lope', alt: 'GitHub', largura: '70px', view: 'logoGithub'}
 ];
@@ -28,25 +26,30 @@ const menuItems = [
 
 // Função para obter os parâmetros da URL do próprio script
 function getScriptURLParams() {
-    // document.currentScript só é válido durante a execução inicial do script.
     const script = document.currentScript;
     if (!script || !script.src) {
-        // Se não puder encontrar o script ou sua URL, retorna um objeto vazio de parâmetros.
         return new URLSearchParams('');
     }
-    
-    // Usa a URL completa do script para extrair os parâmetros.
     const url = new URL(script.src);
     return url.searchParams;
 }
 
-// CORREÇÃO: Captura os parâmetros AQUI, fora do listener 'DOMContentLoaded'.
+// Captura os parâmetros da URL do script
 const params = getScriptURLParams();
+const itemsToShow = params.get('view')?.split(',');
 const itemsToHide = params.get('hide')?.split(',') || [];
 
 document.addEventListener('DOMContentLoaded', () => {
-    // USA a variável 'itemsToHide' que já foi capturada.
-    const visibleMenuItems = menuItems.filter(item => !itemsToHide.includes(item.view));
+    let visibleMenuItems;
+
+    // A lógica de 'view' (mostrar apenas) tem prioridade sobre 'hide' (ocultar).
+    if (itemsToShow && itemsToShow.length > 0) {
+        // Se 'view' existe, filtra para mostrar APENAS os itens da lista.
+        visibleMenuItems = menuItems.filter(item => itemsToShow.includes(item.view));
+    } else {
+        // Se 'view' não existe, usa a lógica padrão de 'hide'.
+        visibleMenuItems = menuItems.filter(item => !itemsToHide.includes(item.view));
+    }
 
     // Se não houver itens visíveis, não renderiza o menu
     if (visibleMenuItems.length === 0) return;
@@ -66,7 +69,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const linkList = document.createElement('ul');
 
-    // 2. Popula a lista de itens com base na lista FILTRADA, tratando cada tipo
+    // 2. Popula a lista de itens com base na lista FILTRADA
     visibleMenuItems.forEach(item => {
         const listItem = document.createElement('li');
 
@@ -81,15 +84,12 @@ document.addEventListener('DOMContentLoaded', () => {
             case 'imagem':
                 const imgLink = document.createElement('a');
                 imgLink.href = item.url;
-
                 const img = document.createElement('img');
                 img.src = item.src;
                 img.alt = item.alt || 'Imagem do menu';
-
                 if (item.largura) {
                     img.style.width = item.largura;
                 }
-                
                 imgLink.appendChild(img);
                 listItem.appendChild(imgLink);
                 listItem.classList.add('menu-item-imagem');
@@ -112,18 +112,16 @@ document.addEventListener('DOMContentLoaded', () => {
     menuContainer.appendChild(sidebar);
 
     // Adiciona o menu completo ao <body> da página
-    document.body.prepend(menuContainer); // .prepend para garantir que seja um dos primeiros elementos
+    document.body.prepend(menuContainer);
 
     // 4. Cria e injeta o CSS necessário no <head> da página
     const styles = `
         /* Estilos de base para o container do menu */
-        #menu-dinamico-container {
-            /* Este container gerencia o estado 'ativo' */
-        }
+        #menu-dinamico-container {}
 
         /* Ícone Hamburger */
         #menu-hamburger-icon {
-            position: fixed; /* Fixo na tela */
+            position: fixed;
             top: 20px;
             left: 20px;
             width: 35px;
@@ -132,9 +130,8 @@ document.addEventListener('DOMContentLoaded', () => {
             flex-direction: column;
             justify-content: space-around;
             cursor: pointer;
-            z-index: 1001; /* Deve ficar sobre a barra lateral */
+            z-index: 1001;
         }
-
         #menu-hamburger-icon span {
             display: block;
             width: 100%;
@@ -146,29 +143,27 @@ document.addEventListener('DOMContentLoaded', () => {
 
         /* Barra Lateral (Sidebar) */
         #menu-sidebar-nav {
-            position: fixed; /* Fica por cima de todo o conteúdo */
+            position: fixed;
             top: 0;
             left: 0;
             width: 280px;
-            max-width: 80%; /* Garante que não ocupe a tela toda em dispositivos pequenos */
-            height: 100vh; /* Altura total da tela */
+            max-width: 80%;
+            height: 100vh;
             background-color: #ffffff;
             box-shadow: 4px 0px 15px rgba(0, 0, 0, 0.1);
-            transform: translateX(-100%); /* Começa escondida para a esquerda */
+            transform: translateX(-100%);
             transition: transform 0.3s ease-in-out;
             z-index: 1000;
-            padding-top: 80px; /* Espaço para os links não ficarem sob o ícone */
+            padding-top: 80px;
             display: flex;
             flex-direction: column;
         }
-
         #menu-sidebar-nav ul {
             list-style: none;
             padding: 0;
             margin: 0;
-            flex-grow: 1; /* Faz a lista de links crescer */
+            flex-grow: 1;
         }
-
         #menu-sidebar-nav a {
             display: block;
             padding: 18px 25px;
@@ -179,25 +174,24 @@ document.addEventListener('DOMContentLoaded', () => {
             border-bottom: 1px solid #f0f0f0;
             transition: background-color 0.2s;
         }
-
         #menu-sidebar-nav a:hover {
             background-color: #f5f5f5;
         }
 
         /* Estilos para item de IMAGEM */
         .menu-item-imagem {
-            padding: 20px 0; /* Espaçamento vertical */
+            padding: 20px 0;
             border-bottom: 1px solid #f0f0f0;
-            text-align: center; /* Centraliza o link da imagem */
+            text-align: center;
         }
         .menu-item-imagem a {
-            padding: 0; /* Remove padding do link da imagem */
+            padding: 0;
             border-bottom: none;
         }
         .menu-item-imagem img {
-            max-width: 100%; /* Garante que a imagem nunca ultrapasse a largura do menu */
+            max-width: 100%;
             height: auto;
-            display: inline-block; /* Permite centralização */
+            display: inline-block;
             vertical-align: middle;
         }
         
@@ -205,7 +199,7 @@ document.addEventListener('DOMContentLoaded', () => {
         .menu-item-mensagem {
             padding: 20px 25px;
             text-align: center;
-            margin-top: auto; /* Empurra a mensagem para o final */
+            margin-top: auto;
         }
         .menu-item-mensagem span {
             font-size: 0.8rem;
@@ -214,23 +208,18 @@ document.addEventListener('DOMContentLoaded', () => {
 
         /* Lógica de ativação do menu */
         #menu-dinamico-container.ativo #menu-sidebar-nav {
-            transform: translateX(0); /* Move a sidebar para a visão */
+            transform: translateX(0);
         }
-
-        /* Animação do ícone para um 'X' quando o menu está ativo */
         #menu-dinamico-container.ativo #menu-hamburger-icon span:nth-child(1) {
             transform: rotate(45deg) translate(8px, 8px);
         }
-
         #menu-dinamico-container.ativo #menu-hamburger-icon span:nth-child(2) {
             opacity: 0;
         }
-
         #menu-dinamico-container.ativo #menu-hamburger-icon span:nth-child(3) {
             transform: rotate(-45deg) translate(7px, -7px);
         }
     `;
-
     const styleSheet = document.createElement("style");
     styleSheet.innerText = styles;
     document.head.appendChild(styleSheet);
