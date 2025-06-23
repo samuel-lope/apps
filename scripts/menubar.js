@@ -20,6 +20,7 @@ const menuItems = [
     { tipo: 'link', texto: 'Página Inicial', url: 'index.html', view: 'linkHome' },
     { tipo: 'link', texto: 'QRCode PIX', url: 'pix.html', view: 'linkPix' },
     { tipo: 'mensagem', texto: '© Samuel Lopes - 2025', view: 'copyright' },
+    { tipo: 'mensagem', texto: 'Mensagem de Teste', view: 'teste' },
     { tipo: 'imagem', src: 'https://img.shields.io/badge/GitHub-%23181717?style=flat-square&logo=github', url: 'https://github.com/samuel-lope', alt: 'GitHub', largura: '70px', view: 'logoGithub'}
 ];
 
