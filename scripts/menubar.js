@@ -50,7 +50,7 @@ const menuItems = [
         view: 'default'
     },
     {   tipo: 'imagem',
-        src: 'https://img.shields.io/badge/GitHub-samuel--lope-black?style=flat-square&logo=github',
+        src: 'https://img.shields.io/badge/GitHub-samuel--lope-blue?style=for-the-badge&logo=GitHub',
         url: 'https://github.com/samuel-lope',
         alt: 'GitHub',
         largura: '100px',
