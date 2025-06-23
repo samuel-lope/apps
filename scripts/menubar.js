@@ -19,7 +19,7 @@ const menuItems = [
         url: 'index.html',
         alt: 'Logo do site',
         largura: '150px',
-        view: 'fe873732'
+        view: 'default'
     },
     {   tipo: 'link',
         texto: 'Página Inicial',
@@ -47,14 +47,14 @@ const menuItems = [
     },
     {   tipo: 'mensagem',
         texto: '© Samuel Lopes - 2025',
-        view: 'fe873732'
+        view: 'default'
     },
     {   tipo: 'imagem',
-        src: 'https://img.shields.io/badge/GitHub-%23181717?style=flat-square&logo=github',
+        src: 'https://img.shields.io/badge/GitHub-samuel--lope-black?style=flat-square&logo=github',
         url: 'https://github.com/samuel-lope',
         alt: 'GitHub',
-        largura: '70px',
-        view: 'fe873732'
+        largura: '100px',
+        view: 'default'
     }
 ];
 
@@ -207,7 +207,7 @@ document.addEventListener('DOMContentLoaded', () => {
             text-decoration: none;
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
             font-size: 0.8rem;
-            border-bottom: 1px solid #f0f0f0;
+            border-bottom: 0px solid #f0f0f0;
             transition: background-color 0.2s;
         }
         #menu-sidebar-nav a:hover {
@@ -217,7 +217,7 @@ document.addEventListener('DOMContentLoaded', () => {
         /* Estilos para item de IMAGEM */
         .menu-item-imagem {
             padding: 20px 0;
-            border-bottom: 1px solid #f0f0f0;
+            border-bottom: 1px solidrgb(82, 79, 79);
             text-align: center;
         }
         .menu-item-imagem a {
