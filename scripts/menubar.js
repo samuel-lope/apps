@@ -39,7 +39,7 @@ const menuItems = [
     {   tipo: 'link',
         texto: 'Gerar Códigos',
         url: 'codegen.html',
-        view: 'codeGen'
+        view: 'fe873732'
     },
     {   tipo: 'mensagem',
         texto: 'Mensagem de Teste',
