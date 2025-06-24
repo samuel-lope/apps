@@ -1,0 +1,478 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gerador Avançado de Códigos</title>
+    <script src="./scripts/menubar.js?v=0.2&view=default,fe873732" defer></script>
+    <style>
+        :root {
+            --bg-color: rgb(217, 217, 217);
+            --container-bg: #eeeeee;
+            --text-color: #1f2937;
+            --secondary-text: #4b5563;
+            --primary-color: #2563eb;
+            --primary-hover: #1d4ed8;
+            --border-color: #e5e7eb;
+            --shadow-color: rgba(0, 0, 0, 0.1);
+            --result-bg: #fafafa;
+        }
+
+        body.dark-mode {
+            --bg-color: #121212;
+            --container-bg: #1e1e1e;
+            --text-color: #e0e0e0;
+            --secondary-text: #9ca3af;
+            --primary-color: #3b82f6;
+            --primary-hover: #2563eb;
+            --border-color: #444;
+            --shadow-color: rgba(0, 0, 0, 0.2);
+            --result-bg: #2d2d2d;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            padding: 1rem;
+            box-sizing: border-box;
+            transition: background-color 0.3s, color 0.3s;
+        }
+        .container {
+            position: relative;
+            text-align: center;
+            background-color: var(--container-bg);
+            padding: 25px;
+            border-radius: 12px;
+            box-shadow: 0 6px 12px var(--shadow-color);
+            width: 100%;
+            max-width: 500px;
+            transition: background-color 0.3s;
+        }
+        
+        h1 {
+            color: var(--primary-color);
+            margin-top: 0;
+            margin-bottom: 25px;
+        }
+        input[type="text"], select {
+            padding: 12px;
+            width: 100%;
+            margin-bottom: 15px;
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            box-sizing: border-box;
+            background-color: var(--container-bg);
+            color: var(--text-color);
+            font-size: 1rem;
+            transition: border-color 0.3s, box-shadow 0.3s, background-color 0.3s;
+        }
+        input[type="text"]:focus, select:focus {
+            outline: none;
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.2);
+        }
+        #result {
+            font-family: 'Courier New', Courier, monospace;
+            font-size: 1.25rem;
+            font-weight: bold;
+            margin: 20px 0;
+            color: var(--primary-color);
+            word-break: break-all;
+            padding: 15px;
+            background-color: var(--result-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            min-height: 30px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .buttons {
+            margin-top: 20px;
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+        }
+        button {
+            padding: 12px 24px;
+            font-size: 16px;
+            font-weight: bold;
+            color: white;
+            background-color: var(--primary-color);
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+        button:hover {
+            background-color: var(--primary-hover);
+        }
+        #qrcode {
+            margin-top: 20px;
+            max-width: 100%;
+            height: auto;
+            border-radius: 8px;
+            background: white;
+            padding: 10px;
+            border: 1px solid var(--border-color);
+        }
+        .generator-options {
+            display: flex;
+            justify-content: center;
+            gap: 15px;
+            margin-bottom: 20px;
+            color: var(--secondary-text);
+        }
+        .footer-link {
+            margin-top: 25px;
+            font-size: 0.9rem;
+        }
+        .footer-link a {
+            color: var(--primary-color);
+            text-decoration: none;
+        }
+        .footer-link a:hover {
+            text-decoration: underline;
+        }
+        .copy-notification {
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background-color: #10b981; /* success-color */
+            color: white;
+            padding: 10px 20px;
+            border-radius: 5px;
+            opacity: 0;
+            transition: opacity 0.5s, transform 0.5s;
+            z-index: 1000;
+            pointer-events: none;
+        }
+        .prefix-suffix-container {
+            display: flex;
+            gap: 10px;
+        }
+        
+        /* Theme Switch Styles */
+        .theme-switch-wrapper {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 100;
+            display: flex;
+            align-items: center;
+        }
+        .theme-switch {
+            position: relative;
+            display: inline-block;
+            width: 60px;
+            height: 34px;
+        }
+        .theme-switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+        .slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: #ccc;
+            -webkit-transition: .4s;
+            transition: .4s;
+            border-radius: 34px;
+        }
+        .slider:before {
+            position: absolute;
+            content: "";
+            height: 26px;
+            width: 26px;
+            left: 4px;
+            bottom: 4px;
+            background-color: white;
+            -webkit-transition: .4s;
+            transition: .4s;
+            border-radius: 50%;
+        }
+        input:checked + .slider {
+            background-color: var(--primary-color);
+        }
+        input:checked + .slider:before {
+            -webkit-transform: translateX(26px);
+            -ms-transform: translateX(26px);
+            transform: translateX(26px);
+        }
+    </style>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrious/4.0.2/qrious.min.js"></script>
+</head>
+<body>
+    
+    <div class="theme-switch-wrapper">
+        <label class="theme-switch" for="theme-checkbox" title="Alternar tema">
+            <input type="checkbox" id="theme-checkbox" />
+            <div class="slider round"></div>
+        </label>
+    </div>
+
+    <div class="container">
+        <h1>Gerador Avançado de Códigos</h1>
+
+        <div class="generator-options">
+            <label><input type="radio" name="generatorType" value="hex" checked> Hexadecimal</label>
+            <label><input type="radio" name="generatorType" value="base58"> Base58</label>
+            <label><input type="radio" name="generatorType" value="custom"> Personalizado</label>
+        </div>
+
+        <div id="hex-options">
+            <select id="bitLength">
+                <option value="16">16 bits (4 caracteres)</option>
+                <option value="32">32 bits (8 caracteres)</option>
+                <option value="64">64 bits (16 caracteres)</option>
+                <option value="128" selected>128 bits (32 caracteres)</option>
+                <option value="256">256 bits (64 caracteres)</option>
+            </select>
+        </div>
+
+        <div id="custom-options" style="display: none;">
+            <input type="text" id="customChars" value="abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789" placeholder="Caracteres permitidos">
+            <div class="prefix-suffix-container">
+                <input type="text" id="customPrefix" placeholder="Prefixo (opcional)">
+                <input type="text" id="customSuffix" placeholder="Sufixo (opcional)">
+            </div>
+            <input type="text" id="customFormat" value="pre-***-***-suf" placeholder="Formato (ex: pre-***-***-suf)">
+        </div>
+
+        <input type="text" id="seed" placeholder="Seed (Opcional - para entropia adicional)" />
+        
+        <p id="result"></p>
+        <div class="buttons">
+            <button onclick="generateCode()">Gerar Código</button>
+            <button onclick="copyToClipboard()">Copiar</button>
+        </div>
+
+        <canvas id="qrcode"></canvas>
+        <div class="footer-link"><a href="https://github.com/samuel-lope/CodeGenerator" target="_blank" rel="noopener noreferrer">GitHub</a></div>
+    </div>
+
+    <div id="copy-notification" class="copy-notification">Copiado para a área de transferência!</div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const themeCheckbox = document.getElementById('theme-checkbox');
+            
+            const applyTheme = (theme) => {
+                if (theme === 'dark') {
+                    document.body.classList.add('dark-mode');
+                    themeCheckbox.checked = true;
+                } else {
+                    document.body.classList.remove('dark-mode');
+                    themeCheckbox.checked = false;
+                }
+            };
+            
+            const savedTheme = localStorage.getItem('theme');
+            const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+            
+            if (savedTheme) {
+                applyTheme(savedTheme);
+            } else {
+                applyTheme(prefersDark ? 'dark' : 'light');
+            }
+
+            themeCheckbox.addEventListener('change', () => {
+                const newTheme = themeCheckbox.checked ? 'dark' : 'light';
+                applyTheme(newTheme);
+                localStorage.setItem('theme', newTheme);
+            });
+
+            const generatorTypeRadios = document.querySelectorAll('input[name="generatorType"]');
+            const hexOptions = document.getElementById('hex-options');
+            const customOptions = document.getElementById('custom-options');
+
+            generatorTypeRadios.forEach(radio => {
+                radio.addEventListener('change', (event) => {
+                    const isCustom = event.target.value === 'custom';
+                    hexOptions.style.display = isCustom ? 'none' : 'block';
+                    customOptions.style.display = isCustom ? 'block' : 'none';
+                });
+            });
+        });
+
+        async function generateCode() {
+            const type = document.querySelector('input[name="generatorType"]:checked').value;
+            let resultValue = '';
+
+            try {
+                switch (type) {
+                    case 'hex':
+                        resultValue = await generateHex();
+                        break;
+                    case 'base58':
+                        resultValue = await generateBase58();
+                        break;
+                    case 'custom':
+                        resultValue = await generateCustom();
+                        break;
+                }
+                
+                document.getElementById('result').textContent = resultValue;
+                generateQRCode(resultValue);
+
+            } catch (error) {
+                console.error("Erro na geração do código:", error);
+                alert("Ocorreu um erro: " + error.message);
+            }
+        }
+
+        function getSecureRandomBytes(byteLength) {
+            const array = new Uint8Array(byteLength);
+            window.crypto.getRandomValues(array);
+            
+            const seed = document.getElementById('seed').value;
+            if (seed) {
+                for (let i = 0; i < seed.length; i++) {
+                    for(let j = 0; j < array.length; j++) {
+                        array[j] ^= seed.charCodeAt(i) + j;
+                    }
+                }
+            }
+            return array;
+        }
+
+        async function generateHex() {
+            const selectedBits = parseInt(document.getElementById('bitLength').value, 10);
+            const byteLength = selectedBits / 8;
+            const randomBytes = getSecureRandomBytes(byteLength);
+            return Array.from(randomBytes, byte => ('0' + byte.toString(16)).slice(-2)).join('');
+        }
+
+        async function generateBase58() {
+            const ALPHABET = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
+            const BASE = ALPHABET.length;
+            const selectedBits = parseInt(document.getElementById('bitLength').value, 10);
+            const byteLength = selectedBits / 8;
+            
+            const bytes = getSecureRandomBytes(byteLength);
+            let digits = [0];
+
+            for (let i = 0; i < bytes.length; i++) {
+                for (let j = 0; j < digits.length; j++) {
+                    digits[j] <<= 8;
+                }
+                digits[0] += bytes[i];
+                let carry = 0;
+                for (let j = 0; j < digits.length; j++) {
+                    digits[j] += carry;
+                    carry = (digits[j] / BASE) | 0;
+                    digits[j] %= BASE;
+                }
+                while (carry > 0) {
+                    digits.push(carry % BASE);
+                    carry = (carry / BASE) | 0;
+                }
+            }
+            
+            for (let i = 0; i < bytes.length && bytes[i] === 0; i++) {
+                digits.push(0);
+            }
+            
+            return digits.reverse().map(digit => ALPHABET[digit]).join('');
+        }
+        
+        async function generateCustom() {
+            const chars = document.getElementById('customChars').value;
+            const format = document.getElementById('customFormat').value;
+            const prefix = document.getElementById('customPrefix').value;
+            const suffix = document.getElementById('customSuffix').value;
+
+            if (!chars || !format) {
+                throw new Error("Por favor, preencha os campos de Caracteres e Formato.");
+            }
+
+            const randomCharCount = (format.match(/\*/g) || []).length;
+            
+            if (randomCharCount === 0) {
+                 let result = format.replace(/pre/g, prefix).replace(/suf/g, suffix);
+                 return result;
+            }
+
+            const randomBytes = getSecureRandomBytes(randomCharCount);
+            let randomChars = '';
+            for (let i = 0; i < randomCharCount; i++) {
+                randomChars += chars[randomBytes[i] % chars.length];
+            }
+
+            let result = format.replace(/pre/g, prefix).replace(/suf/g, suffix);
+
+            let charIndex = 0;
+            result = result.replace(/\*/g, () => randomChars[charIndex++]);
+
+            return result;
+        }
+
+
+        function copyToClipboard() {
+            const resultText = document.getElementById('result').textContent;
+            if (navigator.clipboard && resultText) {
+                navigator.clipboard.writeText(resultText).then(() => {
+                    showCopyNotification();
+                }).catch(err => {
+                    legacyCopy(resultText);
+                });
+            } else if (resultText) {
+                legacyCopy(resultText);
+            } else {
+                alert('Nenhum valor gerado para copiar!');
+            }
+        }
+        
+        function legacyCopy(text) {
+             const tempInput = document.createElement('textarea');
+             tempInput.value = text;
+             document.body.appendChild(tempInput);
+             tempInput.select();
+             document.execCommand('copy');
+             document.body.removeChild(tempInput);
+             showCopyNotification();
+        }
+
+        function showCopyNotification() {
+            const notification = document.getElementById('copy-notification');
+            notification.style.opacity = '1';
+            notification.style.transform = 'translateX(-50%) translateY(0)';
+            setTimeout(() => {
+                notification.style.opacity = '0';
+                notification.style.transform = 'translateX(-50%) translateY(20px)';
+            }, 2000);
+        }
+
+        function generateQRCode(value) {
+            const qrCanvas = document.getElementById('qrcode');
+            const context = qrCanvas.getContext('2d');
+            context.clearRect(0, 0, qrCanvas.width, qrCanvas.height);
+
+            if (value) {
+                new QRious({
+                    element: qrCanvas,
+                    value: value.toString(),
+                    size: 250,
+                    level: 'H',
+                    background: '#ffffff', // Always white background for readability
+                    foreground: '#000000', // Always black foreground for readability
+                });
+            }
+        }
+    </script>
+
+</body>
+</html>
+

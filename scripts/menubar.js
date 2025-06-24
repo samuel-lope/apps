@@ -38,7 +38,7 @@ const menuItems = [
     },
     {   tipo: 'link',
         texto: 'Gerar Códigos',
-        url: 'https://codegen.samuellopes.com.br',
+        url: 'codegen.html',
         view: 'codeGen'
     },
     {   tipo: 'mensagem',
