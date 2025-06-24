@@ -1,10 +1,14 @@
+<!--
+author: @samuellopes | https://github.com/samuel-lope
+version: 0.0.1
+date: 06-2025
+-->
 <!DOCTYPE html>
-<html lang="pt-br">
+<html lang="pt-BR">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Gerador Avançado de Códigos</title>
-    <script src="./scripts/menubar.js?v=0.2&view=default,fe873732" defer></script>
     <style>
         :root {
             --bg-color: rgb(217, 217, 217);
@@ -60,7 +64,7 @@
             margin-top: 0;
             margin-bottom: 25px;
         }
-        input[type="text"], select {
+        input[type="text"], input[type="number"], select {
             padding: 12px;
             width: 100%;
             margin-bottom: 15px;
@@ -72,7 +76,7 @@
             font-size: 1rem;
             transition: border-color 0.3s, box-shadow 0.3s, background-color 0.3s;
         }
-        input[type="text"]:focus, select:focus {
+        input[type="text"]:focus, input[type="number"]:focus, select:focus {
             outline: none;
             border-color: var(--primary-color);
             box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.2);
@@ -124,6 +128,7 @@
         }
         .generator-options {
             display: flex;
+            flex-wrap: wrap;
             justify-content: center;
             gap: 15px;
             margin-bottom: 20px;
@@ -145,7 +150,7 @@
             bottom: 20px;
             left: 50%;
             transform: translateX(-50%);
-            background-color: #10b981; /* success-color */
+            background-color: #10b981;
             color: white;
             padding: 10px 20px;
             border-radius: 5px;
@@ -153,10 +158,6 @@
             transition: opacity 0.5s, transform 0.5s;
             z-index: 1000;
             pointer-events: none;
-        }
-        .prefix-suffix-container {
-            display: flex;
-            gap: 10px;
         }
         
         /* Theme Switch Styles */
@@ -211,6 +212,15 @@
             -ms-transform: translateX(26px);
             transform: translateX(26px);
         }
+        /* Password Options */
+        #password-options .checkbox-group {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            text-align: left;
+            margin: 15px 0;
+        }
+
     </style>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrious/4.0.2/qrious.min.js"></script>
 </head>
@@ -230,6 +240,7 @@
             <label><input type="radio" name="generatorType" value="hex" checked> Hexadecimal</label>
             <label><input type="radio" name="generatorType" value="base58"> Base58</label>
             <label><input type="radio" name="generatorType" value="custom"> Personalizado</label>
+            <label><input type="radio" name="generatorType" value="password"> Senha</label>
         </div>
 
         <div id="hex-options">
@@ -244,11 +255,19 @@
 
         <div id="custom-options" style="display: none;">
             <input type="text" id="customChars" value="abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789" placeholder="Caracteres permitidos">
-            <div class="prefix-suffix-container">
-                <input type="text" id="customPrefix" placeholder="Prefixo (opcional)">
-                <input type="text" id="customSuffix" placeholder="Sufixo (opcional)">
+            <input type="text" id="customFormat" value="KEY-***-***" placeholder="Formato (ex: PREFIX-***-***)">
+        </div>
+        
+        <div id="password-options" style="display: none;">
+            <input type="number" id="passwordLength" value="16" min="4" placeholder="Quantidade de Caracteres">
+            <div class="checkbox-group">
+                <label><input type="checkbox" id="includeUppercase" checked> Letras Maiúsculas</label>
+                <label><input type="checkbox" id="includeLowercase" checked> Letras Minúsculas</label>
+                <label><input type="checkbox" id="includeNumbers" checked> Números</label>
+                <label><input type="checkbox" id="includeSpecialChars" checked> Caracteres Especiais</label>
+                <label><input type="checkbox" id="includePasswordCustom"> Caracteres Personalizados</label>
             </div>
-            <input type="text" id="customFormat" value="pre-***-***-suf" placeholder="Formato (ex: pre-***-***-suf)">
+            <input type="text" id="passwordCustomChars" style="display:none;" placeholder="Seus caracteres: !@#...">
         </div>
 
         <input type="text" id="seed" placeholder="Seed (Opcional - para entropia adicional)" />
@@ -297,13 +316,22 @@
             const generatorTypeRadios = document.querySelectorAll('input[name="generatorType"]');
             const hexOptions = document.getElementById('hex-options');
             const customOptions = document.getElementById('custom-options');
+            const passwordOptions = document.getElementById('password-options');
 
             generatorTypeRadios.forEach(radio => {
                 radio.addEventListener('change', (event) => {
-                    const isCustom = event.target.value === 'custom';
-                    hexOptions.style.display = isCustom ? 'none' : 'block';
-                    customOptions.style.display = isCustom ? 'block' : 'none';
+                    const selectedValue = event.target.value;
+                    hexOptions.style.display = ['hex', 'base58'].includes(selectedValue) ? 'block' : 'none';
+                    customOptions.style.display = selectedValue === 'custom' ? 'block' : 'none';
+                    passwordOptions.style.display = selectedValue === 'password' ? 'block' : 'none';
                 });
+            });
+            
+            // Show/hide custom password chars input
+            const includePasswordCustom = document.getElementById('includePasswordCustom');
+            const passwordCustomChars = document.getElementById('passwordCustomChars');
+            includePasswordCustom.addEventListener('change', (event) => {
+                passwordCustomChars.style.display = event.target.checked ? 'block' : 'none';
             });
         });
 
@@ -321,6 +349,9 @@
                         break;
                     case 'custom':
                         resultValue = await generateCustom();
+                        break;
+                    case 'password':
+                        resultValue = await generatePassword();
                         break;
                 }
                 
@@ -346,6 +377,11 @@
                 }
             }
             return array;
+        }
+
+        function getRandomChar(charSet) {
+             const randomBytes = getSecureRandomBytes(1);
+             return charSet[randomBytes[0] % charSet.length];
         }
 
         async function generateHex() {
@@ -391,8 +427,6 @@
         async function generateCustom() {
             const chars = document.getElementById('customChars').value;
             const format = document.getElementById('customFormat').value;
-            const prefix = document.getElementById('customPrefix').value;
-            const suffix = document.getElementById('customSuffix').value;
 
             if (!chars || !format) {
                 throw new Error("Por favor, preencha os campos de Caracteres e Formato.");
@@ -401,8 +435,7 @@
             const randomCharCount = (format.match(/\*/g) || []).length;
             
             if (randomCharCount === 0) {
-                 let result = format.replace(/pre/g, prefix).replace(/suf/g, suffix);
-                 return result;
+                 return format;
             }
 
             const randomBytes = getSecureRandomBytes(randomCharCount);
@@ -411,12 +444,76 @@
                 randomChars += chars[randomBytes[i] % chars.length];
             }
 
-            let result = format.replace(/pre/g, prefix).replace(/suf/g, suffix);
-
+            let result = format;
             let charIndex = 0;
             result = result.replace(/\*/g, () => randomChars[charIndex++]);
 
             return result;
+        }
+
+        async function generatePassword() {
+            const length = parseInt(document.getElementById('passwordLength').value, 10);
+            const includeUppercase = document.getElementById('includeUppercase').checked;
+            const includeLowercase = document.getElementById('includeLowercase').checked;
+            const includeNumbers = document.getElementById('includeNumbers').checked;
+            const includeSpecialChars = document.getElementById('includeSpecialChars').checked;
+            const includeCustom = document.getElementById('includePasswordCustom').checked;
+            const customCharsValue = document.getElementById('passwordCustomChars').value;
+
+            const UPPERCASE_CHARS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+            const LOWERCASE_CHARS = 'abcdefghijklmnopqrstuvwxyz';
+            const NUMBER_CHARS = '0123456789';
+            const SPECIAL_CHARS = '!@#$%^&*()_+-=[]{}|;:,.<>?';
+
+            let allowedChars = '';
+            const forcedChars = [];
+
+            if (includeUppercase) {
+                allowedChars += UPPERCASE_CHARS;
+                forcedChars.push(getRandomChar(UPPERCASE_CHARS));
+            }
+            if (includeLowercase) {
+                allowedChars += LOWERCASE_CHARS;
+                forcedChars.push(getRandomChar(LOWERCASE_CHARS));
+            }
+            if (includeNumbers) {
+                allowedChars += NUMBER_CHARS;
+                forcedChars.push(getRandomChar(NUMBER_CHARS));
+            }
+            if (includeSpecialChars) {
+                allowedChars += SPECIAL_CHARS;
+                forcedChars.push(getRandomChar(SPECIAL_CHARS));
+            }
+            if (includeCustom && customCharsValue) {
+                allowedChars += customCharsValue;
+                forcedChars.push(getRandomChar(customCharsValue));
+            }
+            
+            if (allowedChars.length === 0) {
+                throw new Error("Selecione pelo menos um tipo de caractere para gerar a senha.");
+            }
+            
+            if (length < forcedChars.length) {
+                throw new Error(`O comprimento da senha é muito curto. Deve ser de pelo menos ${forcedChars.length} caracteres para incluir todos os tipos selecionados.`);
+            }
+
+            const remainingLength = length - forcedChars.length;
+            let password = [...forcedChars];
+            
+            if (remainingLength > 0) {
+                 const randomBytes = getSecureRandomBytes(remainingLength);
+                 for (let i = 0; i < remainingLength; i++) {
+                     password.push(allowedChars[randomBytes[i] % allowedChars.length]);
+                 }
+            }
+           
+            // Shuffle the password array (Fisher-Yates shuffle)
+            for (let i = password.length - 1; i > 0; i--) {
+                const j = getSecureRandomBytes(1)[0] % (i + 1);
+                [password[i], password[j]] = [password[j], password[i]];
+            }
+
+            return password.join('');
         }
 
 
