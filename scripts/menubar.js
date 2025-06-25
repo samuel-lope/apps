@@ -53,7 +53,7 @@ const menuItems = [
         src: 'https://img.shields.io/badge/GitHub-samuel--lope-blue?style=for-the-badge&logo=GitHub',
         url: 'https://github.com/samuel-lope',
         alt: 'GitHub',
-        largura: '100px',
+        largura: '120px',
         view: 'default'
     }
 ];
