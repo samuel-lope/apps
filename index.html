@@ -1,6 +1,6 @@
 <!--
 author: @samuellopes | https://github.com/samuel-lope
-version: 0.8.0 (grid 4x2 rígido)
+version: 1.1.0 (correção no layout da imagem do card)
 date: 06-2025
 -->
 <!DOCTYPE html>
@@ -104,10 +104,9 @@ date: 06-2025
             color: #666;
         }
 
-        /* --- CSS MODIFICADO para o Container dos Cards --- */
         #card-grid-container {
-            display: grid; /* MODIFICADO: Usando grid para um layout rígido */
-            grid-template-columns: repeat(4, 1fr); /* MODIFICADO: 4 colunas */
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
             gap: 20px;
             width: 100%;
             max-width: 920px; 
@@ -115,19 +114,39 @@ date: 06-2025
         }
 
         .card-link {
-            display: block;
-            padding: 20px;
+            display: flex;
+            flex-direction: column;
             border-radius: 16px;
             text-decoration: none;
             transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
-            /* width: 200px; A largura agora é controlada pelo grid */
             box-shadow: 0 4px 6px rgba(0,0,0,0.05);
             border: none;
+            overflow: hidden;
         }
         
         .card-link:hover {
             transform: translateY(-5px);
             box-shadow: 0 8px 15px rgba(0,0,0,0.1);
+        }
+        
+        .card-image {
+            width: 100%;
+            object-fit: contain;
+        }
+        
+        /* NOVO: Container para a imagem com margem */
+        .image-container {
+            padding: 20px 20px 0 20px; /* Adiciona espaçamento no topo e lados */
+        }
+
+        .card-content {
+            padding: 20px;
+            flex-grow: 1;
+        }
+        
+        /* NOVO: Ajuste para o padding do conteúdo quando há imagem */
+        .card-content.with-image {
+             padding-top: 15px;
         }
 
         .card-title {
@@ -143,7 +162,7 @@ date: 06-2025
 
         @media (max-width: 940px) {
              #card-grid-container {
-                grid-template-columns: repeat(2, 1fr); /* MODIFICADO: 2 colunas em telas menores */
+                grid-template-columns: repeat(2, 1fr);
             }
         }
 
@@ -155,7 +174,7 @@ date: 06-2025
                 margin-top: 70px;
             }
             #card-grid-container {
-                grid-template-columns: 1fr; /* MODIFICADO: 1 coluna em telas muito pequenas */
+                grid-template-columns: 1fr;
             }
         }
 
@@ -187,28 +206,36 @@ date: 06-2025
                     "description": "Crie recibos de forma rápida.",
                     "link": "recibo.html",
                     "bgcolor": "#c7d2fe",
-                    "textcolor": "#1e1b4b"
+                    "textcolor": "#1e1b4b",
+                    "image": "./imgs/recibo.png",
+                    "imageheight": "60px"
                 },
                 {
                     "title": "QrCode PIX",
                     "description": "Crie uma placa de QrCode PIX para impressão.",
                     "link": "pix.html",
                     "bgcolor": "#fde68a",
-                    "textcolor": "#78350f"
+                    "textcolor": "#78350f",
+                    "image": "./imgs/pix.png",
+                    "imageheight": "60px"
                 },
                 {
                     "title": "Gerador de Códigos",
                     "description": "Gere códigos e senhas de forma fácil e rápida.",
                     "link": "codegen.html",
                     "bgcolor": "#d1d5db",
-                    "textcolor": "#1f2937"
+                    "textcolor": "#1f2937",
+                    "image": "./imgs/codigo-qr.png",
+                    "imageheight": "60px"
                 },
                 {
                     "title": "GitHub",
                     "description": "Veja os códigos abertos no GitHub.",
                     "link": "https://github.com/samuel-lope",
                     "bgcolor": "#a7f3d0",
-                    "textcolor": "#064e3b"
+                    "textcolor": "#064e3b",
+                    "image": "./imgs/github.png",
+                    "imageheight":"60px"
                 }
             ]
         };
@@ -217,19 +244,41 @@ date: 06-2025
             const container = document.getElementById('card-grid-container');
             if (!container) return;
 
-            // Limita a criação a no máximo 8 cards
             cardsData.cards.slice(0, 8).forEach(cardInfo => {
                 const cardLink = document.createElement('a');
                 cardLink.href = cardInfo.link;
                 cardLink.className = 'card-link';
-                // Para links locais, não abrir em nova aba
+                // MODIFICADO: A cor de fundo é aplicada a todo o card
+                cardLink.style.backgroundColor = cardInfo.bgcolor;
+                
                 if (!cardInfo.link.startsWith('#') && !cardInfo.link.endsWith('.html')) {
                     cardLink.target = '_blank';
                     cardLink.rel = 'noopener noreferrer';
                 }
 
-                cardLink.style.backgroundColor = cardInfo.bgcolor;
-                cardLink.style.color = cardInfo.textcolor;
+                const contentDiv = document.createElement('div');
+                contentDiv.className = 'card-content';
+                
+                if (cardInfo.image) {
+                    // NOVO: Container para a imagem para aplicar o padding
+                    const imageContainer = document.createElement('div');
+                    imageContainer.className = 'image-container';
+
+                    const image = document.createElement('img');
+                    image.src = cardInfo.image;
+                    image.alt = `Imagem para ${cardInfo.title}`;
+                    image.className = 'card-image';
+                    image.style.height = cardInfo.imageheight || '60px'; 
+                    image.onerror = (e) => { e.target.parentElement.style.display='none'; };
+                    
+                    imageContainer.appendChild(image);
+                    cardLink.appendChild(imageContainer);
+                    contentDiv.classList.add('with-image');
+                }
+                
+                // A cor do texto é aplicada apenas no container de conteúdo
+                contentDiv.style.color = cardInfo.textcolor;
+                contentDiv.style.flexGrow = '1';
 
                 const title = document.createElement('h3');
                 title.className = 'card-title';
@@ -239,8 +288,10 @@ date: 06-2025
                 description.className = 'card-description';
                 description.textContent = cardInfo.description;
 
-                cardLink.appendChild(title);
-                cardLink.appendChild(description);
+                contentDiv.appendChild(title);
+                contentDiv.appendChild(description);
+                
+                cardLink.appendChild(contentDiv);
 
                 container.appendChild(cardLink);
             });
