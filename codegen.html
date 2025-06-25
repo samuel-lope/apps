@@ -9,7 +9,7 @@ date: 06-2025
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Gerador Avançado de Códigos</title>
-    <script src="./scripts/menubar.js?v=0.2&view=default,fe873732" defer></script>
+    <script src="./scripts/menubar.js?v=0.2&view=home,default,fe873732" defer></script>
     <style>
         :root {
             --bg-color: rgb(217, 217, 217);
@@ -246,17 +246,17 @@ date: 06-2025
 
         <div id="hex-options">
             <select id="bitLength">
-                <option value="16">16 bits (4 caracteres)</option>
-                <option value="32">32 bits (8 caracteres)</option>
-                <option value="64">64 bits (16 caracteres)</option>
-                <option value="128" selected>128 bits (32 caracteres)</option>
-                <option value="256">256 bits (64 caracteres)</option>
+                <option value="16">16 bits</option>
+                <option value="32">32 bits</option>
+                <option value="64">64 bits</option>
+                <option value="128" selected>128 bits</option>
+                <option value="256">256 bits</option>
             </select>
         </div>
 
         <div id="custom-options" style="display: none;">
             <input type="text" id="customChars" value="abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789" placeholder="Caracteres permitidos">
-            <input type="text" id="customFormat" value="KEY-***-***" placeholder="Formato (ex: PREFIX-***-***)">
+            <input type="text" id="customFormat" value="PREFIXO-******-SUFIXO" placeholder="Formato (ex: PREFIX-***-***)">
         </div>
         
         <div id="password-options" style="display: none;">
