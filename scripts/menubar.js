@@ -24,7 +24,7 @@ const menuItems = [
     {   tipo: 'link',
         texto: 'Página Inicial',
         url: 'index.html',
-        view: 'fe873732'
+        view: 'home'
     },
     {   tipo: 'link',
         texto: 'Criar Recibo',
