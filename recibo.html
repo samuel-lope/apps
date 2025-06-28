@@ -445,6 +445,7 @@ date: 06-2025
                 <button type="button" id="limparBtn" class="btn btn-secondary">Limpar</button>
                 <button type="button" id="previewBtn" class="btn btn-primary">Pré-visualizar</button>
                 <button type="button" id="gerarBtn" class="btn btn-success">Gerar Recibo</button>
+                <button type="button" id="gerarWorkerBtn" class="btn btn-info">Gerar com Worker</button>
             </div>
         </form>
     </div>
@@ -484,6 +485,8 @@ date: 06-2025
             const imprimirPreviewBtn = document.getElementById('imprimirPreviewBtn');
             const downloadPreviewBtn = document.getElementById('downloadPreviewBtn');
             const notification = document.getElementById('notification');
+
+            const gerarWorkerBtn = document.getElementById('gerarWorkerBtn');
 
             // Validação e formatação de valor
             const valorInput = document.getElementById('valor');
@@ -865,6 +868,50 @@ date: 06-2025
                 }, 1000);
             }
 
+            async function gerarComWorker() {
+                if (!validarFormulario()) {
+                    mostrarNotificacao('Por favor, preencha todos os campos obrigatórios.', 'error');
+                    return;
+                }
+
+                const dados = {
+                    nomePagador: document.getElementById('nomePagador').value,
+                    cpfPagador: document.getElementById('cpfPagador').value,
+                    enderecoPagador: document.getElementById('enderecoPagador').value,
+                    nomeRecebedor: document.getElementById('nomeRecebedor').value,
+                    cpfRecebedor: document.getElementById('cpfRecebedor').value,
+                    enderecoRecebedor: document.getElementById('enderecoRecebedor').value,
+                    valor: document.getElementById('valor').value,
+                    referente: document.getElementById('referente').value,
+                    formaPagamento: document.getElementById('formaPagamento').value,
+                    data: document.getElementById('data').value,
+                    cidade: document.getElementById('cidade').value,
+                    observacoes: document.getElementById('observacoes').value,
+                };
+
+                try {
+                    const response = await fetch('http://127.0.0.1:8787/v1/recibo', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify(dados),
+                    });
+
+                    if (!response.ok) {
+                        throw new Error('Erro na requisição: ' + response.statusText);
+                    }
+
+                    const result = await response.json();
+                    const previewContent = document.getElementById('previewContent');
+                    previewContent.innerHTML = result.resultado;
+                    previewModal.style.display = 'block';
+
+                } catch (error) {
+                    mostrarNotificacao('Erro ao gerar recibo com worker: ' + error.message, 'error');
+                }
+            }
+
             // Limpar formulário
             function limparFormulario() {
                 form.reset();
@@ -881,6 +928,7 @@ date: 06-2025
             fecharPreviewBtn.addEventListener('click', () => previewModal.style.display = 'none');
             imprimirPreviewBtn.addEventListener('click', imprimirRecibo);
             downloadPreviewBtn.addEventListener('click', gerarPDF);
+            gerarWorkerBtn.addEventListener('click', gerarComWorker);
 
             // Fechar modal ao clicar fora
             window.addEventListener('click', function(event) {
