@@ -242,7 +242,7 @@ date: 06-2025
                 if (formData.get('description')) { payload.description = formData.get('description'); }
 
                 try {
-                    const response = await fetch('https://api.samuellopes.com.br/v1/codepix', {
+                    const response = await fetch('https://api.samuellopes.com.br/v2/pix', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify(payload),
