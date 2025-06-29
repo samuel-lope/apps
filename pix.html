@@ -242,17 +242,9 @@ date: 06-2025
                 if (formData.get('description')) { payload.description = formData.get('description'); }
 
                 try {
-                    const headers = {
-                        'Content-Type': 'application/json',
-                    };
-
-                    if (typeof env !== 'undefined' && env.TOKEN) {
-                        headers['Authorization'] = `Bearer ${env.TOKEN}`;
-                    }
-
-                    const response = await fetch('https://api.samuellopes.com.br/v1/codepix', {
+                    const response = await fetch('/api/pix', {
                         method: 'POST',
-                        headers: headers,
+                        headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify(payload),
                     });
                     
