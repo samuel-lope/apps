@@ -242,9 +242,17 @@ date: 06-2025
                 if (formData.get('description')) { payload.description = formData.get('description'); }
 
                 try {
+                    const headers = {
+                        'Content-Type': 'application/json',
+                    };
+
+                    if (typeof env !== 'undefined' && env.TOKEN) {
+                        headers['Authorization'] = `Bearer ${env.TOKEN}`;
+                    }
+
                     const response = await fetch('https://api.samuellopes.com.br/v2/pix', {
                         method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
+                        headers: headers,
                         body: JSON.stringify(payload),
                     });
                     
