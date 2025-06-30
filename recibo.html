@@ -1,6 +1,6 @@
 <!--
 author: @samuellopes | https://github.com/samuel-lope
-version: 0.0.2
+version: 0.0.1
 date: 06-2025
 -->
 <!DOCTYPE html>
@@ -105,10 +105,6 @@ date: 06-2025
             border-color: var(--accent-color);
             box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2);
         }
-        
-        .form-control.error {
-            border-color: var(--error-color);
-        }
 
         .form-row {
             display: flex;
@@ -177,6 +173,15 @@ date: 06-2025
 
         .btn-success:hover {
             background-color: #0ca678;
+        }
+
+        .btn-danger {
+            background-color: var(--error-color);
+            color: white;
+        }
+
+        .btn-danger:hover {
+            background-color: #dc2626;
         }
 
         .modal {
@@ -273,6 +278,22 @@ date: 06-2025
             padding-top: 10px;
         }
 
+        .alert {
+            padding: 15px;
+            margin-bottom: 20px;
+            border-radius: 5px;
+            color: white;
+            font-weight: 500;
+        }
+
+        .alert-success {
+            background-color: var(--success-color);
+        }
+
+        .alert-error {
+            background-color: var(--error-color);
+        }
+
         .notification {
             position: fixed;
             top: 20px;
@@ -281,15 +302,13 @@ date: 06-2025
             border-radius: 5px;
             color: white;
             opacity: 0;
-            transition: opacity 0.3s, transform 0.3s;
-            transform: translateX(100%);
+            transition: opacity 0.3s;
             z-index: 1001;
             box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
         }
 
         .show-notification {
             opacity: 1;
-            transform: translateX(0);
         }
 
         /* Responsividade */
@@ -299,10 +318,6 @@ date: 06-2025
             }
             
             .form-col {
-                margin-bottom: 15px;
-                padding: 0;
-            }
-            .form-row .form-col:first-child {
                 margin-bottom: 15px;
             }
             
@@ -317,8 +332,6 @@ date: 06-2025
             
             .btn {
                 width: 100%;
-            }
-            .button-group .btn:not(:last-child) {
                 margin-bottom: 10px;
             }
         }
@@ -382,7 +395,7 @@ date: 06-2025
                     <div class="form-col">
                         <div class="form-group">
                             <label for="valor">Valor (R$)*</label>
-                            <input type="text" id="valor" class="form-control" placeholder="Ex: 150,50" required>
+                            <input type="text" id="valor" class="form-control" required>
                         </div>
                     </div>
                     <div class="form-col">
@@ -430,7 +443,9 @@ date: 06-2025
 
             <div class="button-group">
                 <button type="button" id="limparBtn" class="btn btn-secondary">Limpar</button>
-                <button type="button" id="previewBtn" class="btn btn-primary">Pré-visualizar e Gerar</button>
+                <button type="button" id="previewBtn" class="btn btn-primary">Pré-visualizar</button>
+                <button type="button" id="gerarBtn" class="btn btn-success">Gerar Recibo</button>
+                <button type="button" id="gerarWorkerBtn" class="btn btn-info">Gerar com Worker</button>
             </div>
         </form>
     </div>
@@ -454,9 +469,15 @@ date: 06-2025
 
     <script>
         document.addEventListener('DOMContentLoaded', function() {
-            // --- ELEMENTOS DO DOM ---
+            // Configurar data atual como padrão
+            const today = new Date();
+            const formattedDate = today.toISOString().substr(0, 10);
+            document.getElementById('data').value = formattedDate;
+
+            // Elementos DOM
             const form = document.getElementById('reciboForm');
             const previewBtn = document.getElementById('previewBtn');
+            const gerarBtn = document.getElementById('gerarBtn');
             const limparBtn = document.getElementById('limparBtn');
             const previewModal = document.getElementById('previewModal');
             const closePreview = document.getElementById('closePreview');
@@ -464,125 +485,395 @@ date: 06-2025
             const imprimirPreviewBtn = document.getElementById('imprimirPreviewBtn');
             const downloadPreviewBtn = document.getElementById('downloadPreviewBtn');
             const notification = document.getElementById('notification');
+
+            const gerarWorkerBtn = document.getElementById('gerarWorkerBtn');
+
+            // Validação e formatação de valor
             const valorInput = document.getElementById('valor');
-            const dataInput = document.getElementById('data');
-
-            // --- INICIALIZAÇÃO ---
-            const today = new Date();
-            const formattedDate = today.toISOString().substr(0, 10);
-            dataInput.value = formattedDate;
-
-            // --- FORMATAÇÃO DE INPUTS ---
-            valorInput.addEventListener('input', function(e) {
-                let value = e.target.value.replace(/\D/g, '');
-                value = (parseInt(value) / 100).toFixed(2).replace('.', ',');
-                if (value === 'NaN') value = '';
-                e.target.value = value;
+            valorInput.addEventListener('input', function() {
+                let value = this.value.replace(/\D/g, '');
+                if (value.length > 2) {
+                    const intPart = value.slice(0, -2);
+                    const decPart = value.slice(-2);
+                    this.value = intPart + ',' + decPart;
+                } else if (value.length === 2) {
+                    this.value = '0,' + value;
+                } else if (value.length === 1) {
+                    this.value = '0,0' + value;
+                } else {
+                    this.value = '';
+                }
             });
 
+            // Formatação de CPF/CNPJ
             function formatarCPFCNPJ(campo) {
                 campo.addEventListener('input', function() {
                     let valor = this.value.replace(/\D/g, '');
-                    if (valor.length <= 11) { // CPF
-                        this.value = valor
-                            .replace(/(\d{3})(\d)/, '$1.$2')
-                            .replace(/(\d{3})(\d)/, '$1.$2')
-                            .replace(/(\d{3})(\d{1,2})$/, '$1-$2');
-                    } else { // CNPJ
-                        this.value = valor
-                            .replace(/(\d{2})(\d)/, '$1.$2')
-                            .replace(/(\d{3})(\d)/, '$1.$2')
-                            .replace(/(\d{3})(\d)/, '$1/$2')
-                            .replace(/(\d{4})(\d{1,2})$/, '$1-$2');
+                    
+                    if (valor.length <= 11) {
+                        // CPF
+                        if (valor.length > 9) {
+                            this.value = valor.replace(/(\d{3})(\d{3})(\d{3})(\d{0,2})/, '$1.$2.$3-$4');
+                        } else if (valor.length > 6) {
+                            this.value = valor.replace(/(\d{3})(\d{3})(\d{0,3})/, '$1.$2.$3');
+                        } else if (valor.length > 3) {
+                            this.value = valor.replace(/(\d{3})(\d{0,3})/, '$1.$2');
+                        } else {
+                            this.value = valor;
+                        }
+                    } else {
+                        // CNPJ
+                        if (valor.length > 12) {
+                            this.value = valor.replace(/(\d{2})(\d{3})(\d{3})(\d{4})(\d{0,2})/, '$1.$2.$3/$4-$5');
+                        } else if (valor.length > 8) {
+                            this.value = valor.replace(/(\d{2})(\d{3})(\d{3})(\d{0,4})/, '$1.$2.$3/$4');
+                        } else if (valor.length > 5) {
+                            this.value = valor.replace(/(\d{2})(\d{3})(\d{0,3})/, '$1.$2.$3');
+                        } else if (valor.length > 2) {
+                            this.value = valor.replace(/(\d{2})(\d{0,3})/, '$1.$2');
+                        } else {
+                            this.value = valor;
+                        }
                     }
                 });
             }
+
             formatarCPFCNPJ(document.getElementById('cpfPagador'));
             formatarCPFCNPJ(document.getElementById('cpfRecebedor'));
 
-            // --- VALIDAÇÃO ---
+            // Validar formulário
             function validarFormulario() {
-                let valido = true;
                 const camposObrigatorios = ['nomePagador', 'nomeRecebedor', 'valor', 'data'];
-                camposObrigatorios.forEach(id => {
-                    const el = document.getElementById(id);
-                    if (!el.value.trim()) {
-                        el.classList.add('error');
+                let valido = true;
+                
+                camposObrigatorios.forEach(campo => {
+                    const element = document.getElementById(campo);
+                    if (!element.value.trim()) {
+                        element.classList.add('error');
                         valido = false;
                     } else {
-                        el.classList.remove('error');
+                        element.classList.remove('error');
                     }
                 });
+
+                // Validar formato do valor
+                const valorRegex = /^[0-9]+,[0-9]{2}$|^[0-9]+$/;
+                if (!valorRegex.test(valorInput.value.trim()) && valorInput.value.trim() !== '') {
+                    valorInput.classList.add('error');
+                    valido = false;
+                    mostrarNotificacao('O valor deve estar no formato correto (ex: 100,00)', 'error');
+                }
+
                 return valido;
             }
 
-            // --- NOTIFICAÇÕES ---
-            function mostrarNotificacao(mensagem, tipo = 'error') {
+            // Mostrar notificação
+            function mostrarNotificacao(mensagem, tipo) {
                 notification.textContent = mensagem;
-                notification.style.backgroundColor = tipo === 'success' ? 'var(--success-color)' : 'var(--error-color)';
-                notification.classList.add('show-notification');
+                notification.className = 'notification show-notification';
+                
+                if (tipo === 'success') {
+                    notification.style.backgroundColor = 'var(--success-color)';
+                } else {
+                    notification.style.backgroundColor = 'var(--error-color)';
+                }
+                
                 setTimeout(() => {
-                    notification.classList.remove('show-notification');
+                    notification.className = 'notification';
                 }, 3000);
             }
 
-            // --- LÓGICA DO RECIBO ---
-            function valorPorExtenso(s) {
-                // Implementação da função para converter valor por extenso
-                // (mantida a original por ser longa)
-                let n = parseFloat(s.replace(/\./g, '').replace(',', '.'));
-                if (isNaN(n)) return "zero";
-                if (n === 0) return "zero";
-                let extenso = "";
-                const inteiro = Math.floor(n);
-                const centavos = Math.round((n - inteiro) * 100);
-                const trilhoes = Math.floor(inteiro / 1e12);
-                const bilhoes = Math.floor((inteiro % 1e12) / 1e9);
-                const milhoes = Math.floor((inteiro % 1e9) / 1e6);
-                const mil = Math.floor((inteiro % 1e6) / 1e3);
-                const resto = inteiro % 1e3;
-                const u = ["", "um", "dois", "três", "quatro", "cinco", "seis", "sete", "oito", "nove"];
-                const d = ["", "dez", "vinte", "trinta", "quarenta", "cinquenta", "sessenta", "setenta", "oitenta", "noventa"];
-                const dz = ["dez", "onze", "doze", "treze", "quatorze", "quinze", "dezesseis", "dezessete", "dezoito", "dezenove"];
-                const c = ["", "cento", "duzentos", "trezentos", "quatrocentos", "quinhentos", "seiscentos", "setecentos", "oitocentos", "novecentos"];
-                
-                function parte(p, s, pl) {
-                    if (p === 0) return "";
-                    let str = "";
-                    if (p > 100 && p % 100 !== 0) str += " e ";
-                    else if (p > 0) str += " e ";
-                    return str + (p === 1 ? s : pl);
-                }
-
-                function num(n) {
-                    if (n === 0) return "";
-                    if (n === 100) return "cem";
-                    let str = "";
-                    const nC = Math.floor(n / 100);
-                    const nD = Math.floor((n % 100) / 10);
-                    const nU = n % 10;
-                    if (nC > 0) str += c[nC] + (n % 100 !== 0 ? " e " : "");
-                    if (nD === 1) { str += dz[nU]; return str; }
-                    if (nD > 1) str += d[nD] + (nU > 0 ? " e " : "");
-                    if (nU > 0) str += u[nU];
-                    return str;
-                }
-                
-                if(trilhoes > 0) extenso += num(trilhoes) + parte(trilhoes, " trilhão", " trilhões");
-                if(bilhoes > 0) extenso += num(bilhoes) + parte(bilhoes, " bilhão", " bilhões");
-                if(milhoes > 0) extenso += num(milhoes) + parte(milhoes, " milhão", " milhões");
-                if(mil > 0) extenso += (mil === 1 ? "" : num(mil)) + " mil";
-                if(resto > 0) extenso += (inteiro > 1000 ? " e " : "") + num(resto);
-
-                if (inteiro > 0) extenso += (inteiro === 1 ? " real" : " reais");
-                if (centavos > 0) {
-                    extenso += (inteiro > 0 ? " e " : "") + num(centavos) + (centavos === 1 ? " centavo" : " centavos");
-                }
-                
-                return extenso.replace(/^ e /,'');
+            // Formatar valor para exibição
+            function formatarValorParaExibicao(valor) {
+                if (!valor) return '0,00';
+                valor = valor.replace(/\./g, '').replace(',', '.');
+                return parseFloat(valor).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
             }
 
+            // Converter valor para extenso
+            function valorPorExtenso(valor) {
+    if (!valor) return 'zero reais';
+    
+    // Converte para número
+    valor = valor.replace(/\./g, '').replace(',', '.');
+    valor = parseFloat(valor);
+    
+    if (isNaN(valor)) return 'valor inválido';
+    
+    // Separar parte inteira e decimal
+    const parteInteira = Math.floor(valor);
+    const parteDecimal = Math.round((valor - parteInteira) * 100);
+    
+    const unidades = ['', 'um', 'dois', 'três', 'quatro', 'cinco', 'seis', 'sete', 'oito', 'nove'];
+    const dezADezenove = ['dez', 'onze', 'doze', 'treze', 'quatorze', 'quinze', 'dezesseis', 'dezessete', 'dezoito', 'dezenove'];
+    const dezenas = ['', '', 'vinte', 'trinta', 'quarenta', 'cinquenta', 'sessenta', 'setenta', 'oitenta', 'noventa'];
+    const centenas = ['', 'cento', 'duzentos', 'trezentos', 'quatrocentos', 'quinhentos', 'seiscentos', 'setecentos', 'oitocentos', 'novecentos'];
+    
+    function converterGrupo(numero) {
+        if (numero === 0) return '';
+        if (numero === 100) return 'cem';
+        if (numero < 10) return unidades[numero];
+        if (numero < 20) return dezADezenove[numero - 10];
+        if (numero < 100) {
+            const dezena = Math.floor(numero / 10);
+            const unidade = numero % 10;
+            return dezenas[dezena] + (unidade ? ' e ' + unidades[unidade] : '');
+        }
+        const centena = Math.floor(numero / 100);
+        const resto = numero % 100;
+        return centenas[centena] + (resto ? ' e ' + converterGrupo(resto) : '');
+    }
+    
+    function converterNumeroCompleto(numero) {
+        if (numero === 0) return 'zero';
+        
+        const grupos = [];
+        const nomesGrupos = ['', 'mil', 'milhão', 'bilhão', 'trilhão'];
+        const nomesGruposPlural = ['', 'mil', 'milhões', 'bilhões', 'trilhões'];
+        
+        let resultado = '';
+        
+        // Divide o número em grupos de 3 dígitos
+        let numeroStr = String(numero);
+        while (numeroStr.length > 0) {
+            const tamanho = Math.min(3, numeroStr.length);
+            grupos.unshift(parseInt(numeroStr.substring(numeroStr.length - tamanho)));
+            numeroStr = numeroStr.substring(0, numeroStr.length - tamanho);
+        }
+        
+        // Converte cada grupo
+        for (let i = 0; i < grupos.length; i++) {
+            const valor = grupos[i];
+            const posicao = grupos.length - 1 - i;
+            
+            if (valor !== 0) {
+                const nomeGrupo = valor === 1 && posicao !== 0 ? nomesGrupos[posicao] : nomesGruposPlural[posicao];
+                
+                if (resultado !== '') {
+                    // Se o valor for menor que 100, adiciona "e"
+                    if (valor < 100) {
+                        resultado += ' e ';
+                    } else {
+                        // Verifica se deve usar vírgula ou "e"
+                        const proximoGrupoTemValor = grupos.slice(i + 1).some(g => g !== 0);
+                        resultado += proximoGrupoTemValor ? ', ' : ' e ';
+                    }
+                }
+                
+                resultado += converterGrupo(valor);
+                if (nomeGrupo !== '') {
+                    resultado += ' ' + nomeGrupo;
+                }
+            }
+        }
+        
+        return resultado;
+    }
+    
+    let extenso = '';
+    
+    if (parteInteira === 0 && parteDecimal === 0) {
+        return 'zero reais';
+    }
+    
+    if (parteInteira > 0) {
+        extenso = converterNumeroCompleto(parteInteira);
+        extenso += parteInteira === 1 ? ' real' : ' reais';
+    }
+    
+    if (parteDecimal > 0) {
+        if (parteInteira > 0) {
+            extenso += ' e ';
+        }
+        
+        if (parteDecimal === 1) {
+            extenso += 'um centavo';
+        } else {
+            extenso += converterGrupo(parteDecimal) + ' centavos';
+        }
+    }
+    
+    return extenso;
+}
+            // Gerar HTML do recibo
             function gerarHTMLRecibo() {
+                const nomePagador = document.getElementById('nomePagador').value;
+                const cpfPagador = document.getElementById('cpfPagador').value;
+                const enderecoPagador = document.getElementById('enderecoPagador').value;
+                const nomeRecebedor = document.getElementById('nomeRecebedor').value;
+                const cpfRecebedor = document.getElementById('cpfRecebedor').value;
+                const enderecoRecebedor = document.getElementById('enderecoRecebedor').value;
+                const valor = document.getElementById('valor').value;
+                const referente = document.getElementById('referente').value;
+                const formaPagamento = document.getElementById('formaPagamento').value;
+                const data = document.getElementById('data').value;
+                const cidade = document.getElementById('cidade').value;
+                const observacoes = document.getElementById('observacoes').value;
+
+                // Formatar data
+                const dataObj = new Date(data);
+                const dataFormatada = dataObj.toLocaleDateString('pt-BR');
+
+                // Número do recibo (usando timestamp)
+                const numeroRecibo = new Date().getTime().toString().slice(-8);
+
+                // Formatar valor
+                const valorFormatado = formatarValorParaExibicao(valor);
+                const valorExtenso = valorPorExtenso(valor);
+
+                let html = `
+                    <div class="preview-header">
+                        <h1 class="preview-title">Recibo</h1>
+                        <div class="preview-number">Nº ${numeroRecibo}</div>
+                    </div>
+                    
+                    <div class="preview-value">R$ ${valorFormatado}</div>
+                    
+                    <div class="preview-text">
+                        <p>Recebi de <strong>${nomePagador}</strong>${cpfPagador ? `, CPF/CNPJ: ${cpfPagador}` : ''}${enderecoPagador ? `, residente em ${enderecoPagador}` : ''}, a quantia de <strong>R$ ${valorFormatado}</strong> (${valorExtenso})${referente ? `, referente a ${referente}` : ''}, pago através de <strong>${formaPagamento}</strong>.</p>
+                `;
+
+                html += `
+                    <p style="margin-top: 20px;"><strong>Dados do Recebedor:</strong></p>
+                    <p>Nome: ${nomeRecebedor}</p>
+                `;
+
+                if (cpfRecebedor) {
+                    html += `<p>CPF/CNPJ: ${cpfRecebedor}</p>`;
+                }
+
+                if (enderecoRecebedor) {
+                    html += `<p>Endereço: ${enderecoRecebedor}</p>`;
+                }
+
+                if (observacoes) {
+                    html += `
+                        <p style="margin-top: 20px;"><strong>Observações:</strong></p>
+                        <p>${observacoes}</p>
+                    `;
+                }
+
+                html += `
+                    </div>
+                    
+                    <div class="preview-footer">
+                        <p>${cidade ? cidade + ', ' : ''}${dataFormatada}</p>
+                        
+                        <div class="signature-line">
+                            ${nomeRecebedor}
+                        </div>
+                    </div>
+                `;
+
+                return html;
+            }
+
+            // Exibir modal de pré-visualização
+            function exibirPreview() {
+                if (!validarFormulario()) {
+                    mostrarNotificacao('Por favor, preencha todos os campos obrigatórios.', 'error');
+                    return;
+                }
+                
+                const previewContent = document.getElementById('previewContent');
+                previewContent.innerHTML = gerarHTMLRecibo();
+                previewModal.style.display = 'block';
+            }
+
+            // Imprimir recibo
+            function imprimirRecibo() {
+                const conteudo = document.getElementById('previewContent').innerHTML;
+                const janela = window.open('', '', 'width=800,height=600');
+                janela.document.write(`
+                    <html>
+                        <head>
+                            <title>Recibo</title>
+                            <style>
+                                body {
+                                    font-family: Arial, sans-serif;
+                                    padding: 20px;
+                                    line-height: 1.6;
+                                }
+                                .preview-header {
+                                    display: flex;
+                                    justify-content: space-between;
+                                    align-items: center;
+                                    margin-bottom: 20px;
+                                    padding-bottom: 10px;
+                                    border-bottom: 2px solid #2563eb;
+                                }
+                                .preview-title {
+                                    font-size: 24px;
+                                    color: #2563eb;
+                                    font-weight: bold;
+                                    text-transform: uppercase;
+                                    margin: 0;
+                                }
+                                .preview-number {
+                                    font-size: 18px;
+                                    color: #4b5563;
+                                }
+                                .preview-value {
+                                    font-size: 24px;
+                                    font-weight: bold;
+                                    color: #2563eb;
+                                    text-align: center;
+                                    padding: 15px;
+                                    margin: 20px 0;
+                                    border: 2px solid #2563eb;
+                                    border-radius: 5px;
+                                }
+                                .preview-text {
+                                    font-size: 16px;
+                                    line-height: 1.6;
+                                    margin-bottom: 20px;
+                                }
+                                .preview-footer {
+                                    margin-top: 40px;
+                                    text-align: center;
+                                }
+                                .signature-line {
+                                    margin: 60px auto 0;
+                                    width: 70%;
+                                    border-top: 1px solid black;
+                                    text-align: center;
+                                    padding-top: 10px;
+                                }
+                                @media print {
+                                    body {
+                                        padding: 0;
+                                    }
+                                }
+                            </style>
+                        </head>
+                        <body>
+                            ${conteudo}
+                        </body>
+                    </html>
+                `);
+                janela.document.close();
+                setTimeout(() => {
+                    janela.print();
+                    janela.close();
+                }, 500);
+            }
+
+            // Função para gerar PDF (mockup - em uma aplicação real, usaria uma biblioteca como jsPDF)
+            function gerarPDF() {
+                mostrarNotificacao('Iniciando download do PDF...', 'success');
+                // Aqui em uma implementação real seria usado jsPDF ou outra biblioteca
+                // Para este exemplo, apenas simularemos o download
+                setTimeout(() => {
+                    mostrarNotificacao('PDF gerado com sucesso!', 'success');
+                }, 1000);
+            }
+
+            async function gerarComWorker() {
+                if (!validarFormulario()) {
+                    mostrarNotificacao('Por favor, preencha todos os campos obrigatórios.', 'error');
+                    return;
+                }
+
                 const dados = {
                     nomePagador: document.getElementById('nomePagador').value,
                     cpfPagador: document.getElementById('cpfPagador').value,
@@ -596,32 +887,60 @@ date: 06-2025
                     data: document.getElementById('data').value,
                     cidade: document.getElementById('cidade').value,
                     observacoes: document.getElementById('observacoes').value,
-                    numeroRecibo: new Date().getTime().toString().slice(-8),
                 };
 
-                const dataObj = new Date(dados.data);
-                const dataFormatada = dataObj.toLocaleDateString('pt-BR', { timeZone: 'UTC' });
-                const valorFormatado = parseFloat(dados.valor.replace(',', '.')).toLocaleString('pt-BR', { minimumFractionDigits: 2 });
-                const valorExtenso = valorPorExtenso(dados.valor);
+                try {
+                    const response = await fetch('http://127.0.0.1:8787/v1/recibo', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify(dados),
+                    });
 
-                return `
-                    <div class="preview-header">
-                        <h1 class="preview-title">Recibo</h1>
-                        <div class="preview-number">Nº ${dados.numeroRecibo}</div>
-                    </div>
-                    <div class="preview-value">R$ ${valorFormatado}</div>
-                    <div class="preview-text">
-                        <p>Recebi de <strong>${dados.nomePagador}</strong>${dados.cpfPagador ? `, CPF/CNPJ: ${dados.cpfPagador}` : ''}${dados.enderecoPagador ? `, residente em ${dados.enderecoPagador}` : ''}, a importância de <strong>R$ ${valorFormatado}</strong> (${valorExtenso})${dados.referente ? `, referente a ${dados.referente}` : ''}.</p>
-                        <p style="margin-top: 20px;">Por ser verdade, firmo o presente.</p>
-                    </div>
-                    <div class="preview-footer">
-                        <p>${dados.cidade ? dados.cidade + ', ' : ''}${dataFormatada}</p>
-                        <div class="signature-line">${dados.nomeRecebedor}</div>
-                    </div>
-                `;
+                    if (!response.ok) {
+                        throw new Error('Erro na requisição: ' + response.statusText);
+                    }
+
+                    const result = await response.json();
+                    const previewContent = document.getElementById('previewContent');
+                    previewContent.innerHTML = result.resultado;
+                    previewModal.style.display = 'block';
+
+                } catch (error) {
+                    mostrarNotificacao('Erro ao gerar recibo com worker: ' + error.message, 'error');
+                }
             }
 
-            // --- API E EVENTOS ---
+            // Limpar formulário
+            function limparFormulario() {
+                form.reset();
+                // Restaurar data atual
+                document.getElementById('data').value = formattedDate;
+                mostrarNotificacao('Formulário limpo com sucesso!', 'success');
+            }
+
+            // Event Listeners
+            previewBtn.addEventListener('click', exibirPreview);
+            gerarBtn.addEventListener('click', exibirPreview);
+            limparBtn.addEventListener('click', limparFormulario);
+            closePreview.addEventListener('click', () => previewModal.style.display = 'none');
+            fecharPreviewBtn.addEventListener('click', () => previewModal.style.display = 'none');
+            imprimirPreviewBtn.addEventListener('click', imprimirRecibo);
+            downloadPreviewBtn.addEventListener('click', gerarPDF);
+            gerarWorkerBtn.addEventListener('click', gerarComWorker);
+
+            // Fechar modal ao clicar fora
+            window.addEventListener('click', function(event) {
+                if (event.target === previewModal) {
+                    previewModal.style.display = 'none';
+                }
+            });
+
+            // Validações com API
+            const cpfPagadorInput = document.getElementById('cpfPagador');
+            const cpfRecebedorInput = document.getElementById('cpfRecebedor');
+
             async function validarDocumento(inputElement) {
                 const doc = inputElement.value.replace(/\D/g, '');
                 if (doc.length !== 11 && doc.length !== 14) {
@@ -629,128 +948,105 @@ date: 06-2025
                     return;
                 }
 
-                // CORREÇÃO: Usando os endpoints e parâmetros corretos da documentação
-                let url;
-                if (doc.length === 11) {
-                    url = `/api/authProxy/v1/validaCPF?CPF=${doc}`;
-                } else {
-                    url = `/api/authProxy/v1/validaCNPJ?CNPJ=${doc}`;
-                }
-
+                const endpoint = doc.length === 11 ? 'cpf' : 'cnpj';
                 try {
-                    const response = await fetch(url);
-                    const result = await response.json();
-                    if (response.ok && result.resultado === 'valido') {
+                    const response = await fetch(`/api/authProxy/v1/recibo/${endpoint}/${doc}`);
+                    if (response.ok) {
                         inputElement.style.borderColor = 'var(--success-color)';
                     } else {
                         inputElement.style.borderColor = 'var(--error-color)';
                     }
                 } catch (error) {
-                    console.error(`Erro ao validar documento:`, error);
+                    console.error(`Erro ao validar ${endpoint}:`, error);
                     inputElement.style.borderColor = 'var(--error-color)';
                 }
             }
 
-            async function gerarEAnexarPix(container) {
-                const payload = {
-                    pixKey: document.getElementById('cpfRecebedor').value.replace(/\D/g, ''),
-                    merchantName: document.getElementById('nomeRecebedor').value,
-                    merchantCity: document.getElementById('cidade').value || 'SAO PAULO',
-                    amount: parseFloat(document.getElementById('valor').value.replace(',', '.')),
-                };
+            cpfPagadorInput.addEventListener('blur', () => validarDocumento(cpfPagadorInput));
+            cpfRecebedorInput.addEventListener('blur', () => validarDocumento(cpfRecebedorInput));
 
-                if (!payload.pixKey) {
-                    mostrarNotificacao('CPF/CNPJ do recebedor é obrigatório para gerar PIX.');
-                    return false;
-                }
-
-                try {
-                    const response = await fetch('/api/authProxy/v1/codepix', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify(payload),
-                    });
-
-                    if (!response.ok) {
-                        const err = await response.json();
-                        throw new Error(err.message || 'Erro na API PIX');
+            // Geração de PIX
+            const formaPagamentoSelect = document.getElementById('formaPagamento');
+            formaPagamentoSelect.addEventListener('change', async () => {
+                if (formaPagamentoSelect.value === 'PIX') {
+                    if (!validarFormulario()) {
+                        mostrarNotificacao('Preencha os campos obrigatórios antes de gerar o PIX.', 'error');
+                        formaPagamentoSelect.value = 'Dinheiro'; // Reverte a seleção
+                        return;
                     }
                     
-                    const result = await response.json();
-                    
-                    // CORREÇÃO: A API já retorna Base64, então apenas adicionamos o prefixo.
-                    const qrCodeSrc = `data:image/svg+xml;base64,${result.svgQrCode}`;
-                    
-                    const pixSection = document.createElement('div');
-                    pixSection.innerHTML = `
-                        <hr style="margin-top: 20px;">
-                        <h3 style="text-align: center; margin-top: 20px;">Pagamento via PIX</h3>
-                        <div style="text-align: center; margin-top: 10px;">
-                            <img src="${qrCodeSrc}" alt="PIX QR Code" style="width: 200px; height: 200px;">
-                        </div>
-                        <div style="margin-top: 10px;">
-                            <strong>Copia e Cola:</strong>
-                            <textarea class="form-control" readonly style="resize: none;">${result.pixCopiaECola}</textarea>
-                        </div>
-                    `;
-                    container.appendChild(pixSection);
-                    return true;
+                    const nomeRecebedor = document.getElementById('nomeRecebedor').value;
+                    const cpfRecebedor = document.getElementById('cpfRecebedor').value;
+                    const cidade = document.getElementById('cidade').value;
+                    const valor = document.getElementById('valor').value.replace(',', '.');
 
-                } catch (error) {
-                    mostrarNotificacao(`Erro ao gerar PIX: ${error.message}`);
-                    return false;
-                }
-            }
-            
-            async function exibirPreview() {
-                if (!validarFormulario()) {
-                    mostrarNotificacao('Por favor, preencha todos os campos obrigatórios.');
-                    return;
-                }
-                
-                const previewContent = document.getElementById('previewContent');
-                previewContent.innerHTML = gerarHTMLRecibo();
-                
-                // CORREÇÃO: Gera o PIX somente na pré-visualização, se selecionado.
-                if (document.getElementById('formaPagamento').value === 'PIX') {
-                    const pixGerado = await gerarEAnexarPix(previewContent);
-                    if (!pixGerado) return; // Não abre o modal se a geração do PIX falhar
-                }
+                    if (!cpfRecebedor) {
+                        mostrarNotificacao('O CPF/CNPJ do recebedor é obrigatório para gerar PIX.', 'error');
+                        formaPagamentoSelect.value = 'Dinheiro';
+                        return;
+                    }
 
-                previewModal.style.display = 'block';
-            }
+                    const payload = {
+                        pixKey: cpfRecebedor.replace(/\D/g, ''),
+                        merchantName: nomeRecebedor,
+                        merchantCity: cidade || 'SAO PAULO', // Cidade padrão
+                        amount: valor,
+                    };
 
-            function imprimirRecibo() {
-                const conteudo = document.getElementById('previewContent').innerHTML;
-                const janela = window.open('', '', 'width=800,height=600');
-                janela.document.write(`<html><head><title>Recibo</title><style>body{font-family:Arial,sans-serif;padding:20px;line-height:1.6;}.preview-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;padding-bottom:10px;border-bottom:2px solid #2563eb;}.preview-title{font-size:24px;color:#2563eb;font-weight:bold;text-transform:uppercase;margin:0;}.preview-number{font-size:18px;color:#4b5563;}.preview-value{font-size:24px;font-weight:bold;color:#2563eb;text-align:center;padding:15px;margin:20px 0;border:2px solid #2563eb;border-radius:5px;}.preview-text{font-size:16px;line-height:1.6;margin-bottom:20px;}.preview-footer{margin-top:40px;text-align:center;}.signature-line{margin:60px auto 0;width:70%;border-top:1px solid black;text-align:center;padding-top:10px;}</style></head><body>${conteudo}</body></html>`);
-                janela.document.close();
-                setTimeout(() => {
-                    janela.print();
-                    janela.close();
-                }, 250);
-            }
+                    try {
+                        const response = await fetch('/api/authProxy/v1/codepix', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify(payload),
+                        });
 
-            function limparFormulario() {
-                form.reset();
-                dataInput.value = formattedDate;
-                mostrarNotificacao('Formulário limpo!', 'success');
-            }
+                        const clonedResponse = response.clone();
 
-            // --- EVENT LISTENERS ---
-            previewBtn.addEventListener('click', exibirPreview);
-            limparBtn.addEventListener('click', limparFormulario);
-            closePreview.addEventListener('click', () => previewModal.style.display = 'none');
-            fecharPreviewBtn.addEventListener('click', () => previewModal.style.display = 'none');
-            imprimirPreviewBtn.addEventListener('click', imprimirRecibo);
-            downloadPreviewBtn.addEventListener('click', () => mostrarNotificacao('Função de download ainda não implementada.'));
+                        if (!response.ok) {
+                            let errorMsg = `Erro ${response.status}: ${response.statusText}`;
+                            try {
+                                const errorResult = await response.json();
+                                errorMsg = errorResult.message || errorResult.error || errorMsg;
+                            } catch (e) {
+                                const textError = await clonedResponse.text();
+                                console.error("A resposta de erro não era JSON. Resposta em texto:", textError);
+                            }
+                            throw new Error(errorMsg);
+                        }
 
-            document.getElementById('cpfPagador').addEventListener('blur', (e) => validarDocumento(e.target));
-            document.getElementById('cpfRecebedor').addEventListener('blur', (e) => validarDocumento(e.target));
-            
-            window.addEventListener('click', (event) => {
-                if (event.target === previewModal) {
-                    previewModal.style.display = 'none';
+                        try {
+                            const result = await response.json();
+                            if (!result.pixCopiaECola || !result.svgQrCode) {
+                                throw new Error('A resposta da API não contém os dados de PIX esperados.');
+                            }
+                            
+                            // Adiciona o QR Code e o Copia e Cola no modal
+                            const previewContent = document.getElementById('previewContent');
+                            const pixSection = document.createElement('div');
+                            pixSection.innerHTML = `
+                                <hr>
+                                <h3 style="text-align: center; margin-top: 20px;">Pagamento via PIX</h3>
+                                <div style="text-align: center; margin-top: 10px;">
+                                    <img src="${result.svgQrCode}" alt="PIX QR Code" style="width: 200px; height: 200px;">
+                                </div>
+                                <div style="margin-top: 10px;">
+                                    <strong>Copia e Cola:</strong>
+                                    <textarea class="form-control" readonly>${result.pixCopiaECola}</textarea>
+                                </div>
+                            `;
+                            previewContent.appendChild(pixSection);
+
+                        } catch (jsonError) {
+                            const responseText = await clonedResponse.text();
+                            console.error("Falha ao analisar a resposta JSON:", jsonError);
+                            console.error("Resposta recebida do servidor:", responseText);
+                            throw new Error("A resposta do servidor não é um JSON válido.");
+                        }
+                        
+                    } catch (error) {
+                        mostrarNotificacao(`Erro ao gerar PIX: ${error.message}`, 'error');
+                        formaPagamentoSelect.value = 'Dinheiro';
+                    }
                 }
             });
         });
