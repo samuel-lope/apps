@@ -853,7 +853,7 @@ date: 06-2025
                 `);
                 janela.document.close();
                 setTimeout(() => {
-                    janela.janela.print();
+                    janela.print();
                     janela.close();
                 }, 500);
             }
@@ -1000,38 +1000,48 @@ date: 06-2025
                             body: JSON.stringify(payload),
                         });
 
+                        const clonedResponse = response.clone();
+
                         if (!response.ok) {
                             let errorMsg = `Erro ${response.status}: ${response.statusText}`;
                             try {
                                 const errorResult = await response.json();
                                 errorMsg = errorResult.message || errorResult.error || errorMsg;
                             } catch (e) {
-                                console.error("A resposta de erro não era JSON.");
+                                const textError = await clonedResponse.text();
+                                console.error("A resposta de erro não era JSON. Resposta em texto:", textError);
                             }
                             throw new Error(errorMsg);
                         }
 
-                        const result = await response.json();
+                        try {
+                            const result = await response.json();
+                            if (!result.pixCopiaECola || !result.svgQrCode) {
+                                throw new Error('A resposta da API não contém os dados de PIX esperados.');
+                            }
+                            
+                            // Adiciona o QR Code e o Copia e Cola no modal
+                            const previewContent = document.getElementById('previewContent');
+                            const pixSection = document.createElement('div');
+                            pixSection.innerHTML = `
+                                <hr>
+                                <h3 style="text-align: center; margin-top: 20px;">Pagamento via PIX</h3>
+                                <div style="text-align: center; margin-top: 10px;">
+                                    <img src="${result.svgQrCode}" alt="PIX QR Code" style="width: 200px; height: 200px;">
+                                </div>
+                                <div style="margin-top: 10px;">
+                                    <strong>Copia e Cola:</strong>
+                                    <textarea class="form-control" readonly>${result.pixCopiaECola}</textarea>
+                                </div>
+                            `;
+                            previewContent.appendChild(pixSection);
 
-                        if (!result.pixCopiaECola || !result.svgQrCode) {
-                            throw new Error('A resposta da API não contém os dados de PIX esperados.');
+                        } catch (jsonError) {
+                            const responseText = await clonedResponse.text();
+                            console.error("Falha ao analisar a resposta JSON:", jsonError);
+                            console.error("Resposta recebida do servidor:", responseText);
+                            throw new Error("A resposta do servidor não é um JSON válido.");
                         }
-
-                        // Adiciona o QR Code e o Copia e Cola no modal
-                        const previewContent = document.getElementById('previewContent');
-                        const pixSection = document.createElement('div');
-                        pixSection.innerHTML = `
-                            <hr>
-                            <h3 style="text-align: center; margin-top: 20px;">Pagamento via PIX</h3>
-                            <div style="text-align: center; margin-top: 10px;">
-                                <img src="${result.svgQrCode}" alt="PIX QR Code" style="width: 200px; height: 200px;">
-                            </div>
-                            <div style="margin-top: 10px;">
-                                <strong>Copia e Cola:</strong>
-                                <textarea class="form-control" readonly>${result.pixCopiaECola}</textarea>
-                            </div>
-                        `;
-                        previewContent.appendChild(pixSection);
                         
                     } catch (error) {
                         mostrarNotificacao(`Erro ao gerar PIX: ${error.message}`, 'error');
