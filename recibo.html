@@ -1000,21 +1000,10 @@ date: 06-2025
                             body: JSON.stringify(payload),
                         });
 
-                        if (!response.ok) {
-                            let errorMsg = `Erro ${response.status}: ${response.statusText}`;
-                            try {
-                                const errorResult = await response.json();
-                                errorMsg = errorResult.message || errorResult.error || errorMsg;
-                            } catch (e) {
-                                console.error("A resposta de erro não era JSON.");
-                            }
-                            throw new Error(errorMsg);
-                        }
-
                         const result = await response.json();
 
-                        if (!result.pixCopiaECola || !result.svgQrCode) {
-                            throw new Error('A resposta da API não contém os dados de PIX esperados.');
+                        if (!response.ok) {
+                            throw new Error(result.message || 'Erro ao gerar PIX.');
                         }
 
                         // Adiciona o QR Code e o Copia e Cola no modal
