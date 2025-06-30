@@ -1,6 +1,6 @@
 <!--
 author: @samuellopes | https://github.com/samuel-lope
-version: 0.0.2
+version: 0.0.3
 date: 06-2025
 -->
 <!DOCTYPE html>
@@ -528,32 +528,16 @@ date: 06-2025
 
             // --- LÓGICA DO RECIBO ---
             function valorPorExtenso(s) {
-                // Implementação da função para converter valor por extenso
-                // (mantida a original por ser longa)
                 let n = parseFloat(s.replace(/\./g, '').replace(',', '.'));
-                if (isNaN(n)) return "zero";
-                if (n === 0) return "zero";
+                if (isNaN(n) || n === 0) return "zero";
                 let extenso = "";
                 const inteiro = Math.floor(n);
                 const centavos = Math.round((n - inteiro) * 100);
-                const trilhoes = Math.floor(inteiro / 1e12);
-                const bilhoes = Math.floor((inteiro % 1e12) / 1e9);
-                const milhoes = Math.floor((inteiro % 1e9) / 1e6);
-                const mil = Math.floor((inteiro % 1e6) / 1e3);
-                const resto = inteiro % 1e3;
                 const u = ["", "um", "dois", "três", "quatro", "cinco", "seis", "sete", "oito", "nove"];
                 const d = ["", "dez", "vinte", "trinta", "quarenta", "cinquenta", "sessenta", "setenta", "oitenta", "noventa"];
                 const dz = ["dez", "onze", "doze", "treze", "quatorze", "quinze", "dezesseis", "dezessete", "dezoito", "dezenove"];
                 const c = ["", "cento", "duzentos", "trezentos", "quatrocentos", "quinhentos", "seiscentos", "setecentos", "oitocentos", "novecentos"];
                 
-                function parte(p, s, pl) {
-                    if (p === 0) return "";
-                    let str = "";
-                    if (p > 100 && p % 100 !== 0) str += " e ";
-                    else if (p > 0) str += " e ";
-                    return str + (p === 1 ? s : pl);
-                }
-
                 function num(n) {
                     if (n === 0) return "";
                     if (n === 100) return "cem";
@@ -567,19 +551,31 @@ date: 06-2025
                     if (nU > 0) str += u[nU];
                     return str;
                 }
+
+                const grupos = [];
+                let temp = inteiro;
+                while(temp > 0){
+                    grupos.push(temp % 1000);
+                    temp = Math.floor(temp/1000);
+                }
                 
-                if(trilhoes > 0) extenso += num(trilhoes) + parte(trilhoes, " trilhão", " trilhões");
-                if(bilhoes > 0) extenso += num(bilhoes) + parte(bilhoes, " bilhão", " bilhões");
-                if(milhoes > 0) extenso += num(milhoes) + parte(milhoes, " milhão", " milhões");
-                if(mil > 0) extenso += (mil === 1 ? "" : num(mil)) + " mil";
-                if(resto > 0) extenso += (inteiro > 1000 ? " e " : "") + num(resto);
+                const nomes = ["", " mil", " milhão", " bilhão", " trilhão"];
+                const nomesPlural = ["", " mil", " milhões", " bilhões", " trilhões"];
+
+                for(let i = grupos.length -1; i >= 0; i--){
+                    if(grupos[i] > 0){
+                        extenso += num(grupos[i]);
+                        extenso += grupos[i] === 1 && i > 1 ? nomes[i] : nomesPlural[i];
+                        if(i > 0 && grupos[i-1] > 0) extenso += " e ";
+                    }
+                }
 
                 if (inteiro > 0) extenso += (inteiro === 1 ? " real" : " reais");
                 if (centavos > 0) {
                     extenso += (inteiro > 0 ? " e " : "") + num(centavos) + (centavos === 1 ? " centavo" : " centavos");
                 }
                 
-                return extenso.replace(/^ e /,'');
+                return extenso.replace(/ e e /g, ' e ').trim();
             }
 
             function gerarHTMLRecibo() {
@@ -629,24 +625,24 @@ date: 06-2025
                     return;
                 }
 
-                // CORREÇÃO: Usando os endpoints e parâmetros corretos da documentação
-                let url;
-                if (doc.length === 11) {
-                    url = `/api/authProxy/v1/validaCPF?CPF=${doc}`;
-                } else {
-                    url = `/api/authProxy/v1/validaCNPJ?CNPJ=${doc}`;
-                }
+                let url = doc.length === 11 
+                    ? `/api/authProxy/v1/validaCPF?CPF=${doc}` 
+                    : `/api/authProxy/v1/validaCNPJ?CNPJ=${doc}`;
 
                 try {
                     const response = await fetch(url);
-                    const result = await response.json();
-                    if (response.ok && result.resultado === 'valido') {
-                        inputElement.style.borderColor = 'var(--success-color)';
+                    if (response.ok) {
+                        const result = await response.json();
+                        inputElement.style.borderColor = result.resultado === 'valido' ? 'var(--success-color)' : 'var(--error-color)';
                     } else {
+                        // Se a resposta não for OK, lê como texto para depuração
+                        const errorText = await response.text();
+                        console.error(`Erro na validação (Status: ${response.status}):`, errorText);
                         inputElement.style.borderColor = 'var(--error-color)';
                     }
                 } catch (error) {
-                    console.error(`Erro ao validar documento:`, error);
+                    // Captura erros de rede ou falhas na conversão para JSON
+                    console.error(`Falha na requisição de validação:`, error);
                     inputElement.style.borderColor = 'var(--error-color)';
                 }
             }
@@ -672,13 +668,19 @@ date: 06-2025
                     });
 
                     if (!response.ok) {
-                        const err = await response.json();
-                        throw new Error(err.message || 'Erro na API PIX');
+                        let errorMsg = `Erro ${response.status}: ${response.statusText}`;
+                        try {
+                            // Tenta obter uma mensagem de erro mais detalhada do corpo da resposta
+                            const err = await response.json();
+                            errorMsg = err.message || JSON.stringify(err);
+                        } catch (e) {
+                            // Falha se o corpo estiver vazio (como no erro 405) ou não for JSON
+                            console.error("A resposta de erro não era JSON. Status:", response.status);
+                        }
+                        throw new Error(errorMsg);
                     }
                     
                     const result = await response.json();
-                    
-                    // CORREÇÃO: A API já retorna Base64, então apenas adicionamos o prefixo.
                     const qrCodeSrc = `data:image/svg+xml;base64,${result.svgQrCode}`;
                     
                     const pixSection = document.createElement('div');
@@ -711,10 +713,9 @@ date: 06-2025
                 const previewContent = document.getElementById('previewContent');
                 previewContent.innerHTML = gerarHTMLRecibo();
                 
-                // CORREÇÃO: Gera o PIX somente na pré-visualização, se selecionado.
                 if (document.getElementById('formaPagamento').value === 'PIX') {
                     const pixGerado = await gerarEAnexarPix(previewContent);
-                    if (!pixGerado) return; // Não abre o modal se a geração do PIX falhar
+                    if (!pixGerado) return;
                 }
 
                 previewModal.style.display = 'block';
