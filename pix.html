@@ -242,7 +242,7 @@ date: 06-2025
                 if (formData.get('description')) { payload.description = formData.get('description'); }
 
                 try {
-                    const response = await fetch('/api/pix', {
+                    const response = await fetch('/api/authProxy/v1/codepix', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify(payload),
