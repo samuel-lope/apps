@@ -1,0 +1,355 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Gerador de Hash Argon2id</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/argon2-browser/dist/argon2-bundled.min.js"></script>
+  <link
+    rel="stylesheet"
+    href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
+  />
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+    body {
+      font-family: 'Inter', sans-serif;
+    }
+    .loader {
+      border-top-color: #3498db;
+      -webkit-animation: spin 1s linear infinite;
+      animation: spin 1s linear infinite;
+    }
+    @keyframes spin {
+      0% {
+        transform: rotate(0deg);
+      }
+      100% {
+        transform: rotate(360deg);
+      }
+    }
+  </style>
+</head>
+<body class="bg-gray-900 text-gray-200 flex items-center justify-center min-h-screen p-4">
+  <div class="w-full max-w-3xl mx-auto bg-gray-800 rounded-2xl shadow-2xl p-6 md:p-10 space-y-8">
+    <div class="text-center">
+      <h1 class="text-3xl md:text-4xl font-bold text-white">Gerador de Hash Argon2id</h1>
+      <p class="text-gray-400 mt-2">Crie hashes Argon2id seguros diretamente no seu navegador.</p>
+    </div>
+
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+      <div class="space-y-6">
+        <div>
+          <label for="password" class="block text-sm font-medium text-gray-300 mb-1">Senha (Password)</label>
+          <div class="relative">
+            <input
+              type="password"
+              id="password"
+              class="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 pr-10 text-white focus:ring-2 focus:ring-blue-500 focus:outline-none"
+              placeholder="Digite sua senha aqui"
+            />
+            <button
+              id="toggle-password"
+              type="button"
+              class="absolute inset-y-0 right-0 px-3 flex items-center text-gray-400 hover:text-white"
+              title="Exibir/Ocultar Senha"
+            >
+              <i class="fas fa-eye" id="toggle-password-icon"></i>
+            </button>
+          </div>
+        </div>
+        <div>
+          <label for="salt" class="block text-sm font-medium text-gray-300 mb-1">Salt (Hexadecimal)</label>
+          <div class="flex items-center space-x-2">
+            <input
+              type="text"
+              id="salt"
+              class="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-white focus:ring-2 focus:ring-blue-500 focus:outline-none"
+              placeholder="Salt aleatório em hex"
+            />
+            <button
+              id="generate-salt"
+              class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg transition-colors"
+              title="Gerar Salt Aleatório"
+            >
+              <i class="fas fa-dice"></i>
+            </button>
+          </div>
+        </div>
+        <div>
+          <label for="hash-length" class="block text-sm font-medium text-gray-300 mb-1">Tamanho do Hash (bytes)</label>
+          <input
+            type="range"
+            id="hash-length"
+            min="16"
+            max="128"
+            value="32"
+            class="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer"
+          />
+          <div class="text-center text-sm text-gray-400 mt-1">
+            <span id="hash-length-value">32</span> bytes
+          </div>
+        </div>
+      </div>
+
+      <div class="space-y-6">
+        <div>
+          <label for="memory-cost" class="block text-sm font-medium text-gray-300 mb-1">Custo de Memória (m)</label>
+          <input
+            type="range"
+            id="memory-cost"
+            min="4096"
+            max="262144"
+            step="4096"
+            value="65536"
+            class="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer"
+          />
+          <div class="text-center text-sm text-gray-400 mt-1">
+            <span id="memory-cost-value">65536</span> KiB (64 MiB)
+          </div>
+        </div>
+        <div>
+          <label for="time-cost" class="block text-sm font-medium text-gray-300 mb-1">Custo de Tempo (t)</label>
+          <input
+            type="range"
+            id="time-cost"
+            min="1"
+            max="10"
+            value="2"
+            class="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer"
+          />
+          <div class="text-center text-sm text-gray-400 mt-1">
+            <span id="time-cost-value">2</span> iterações
+          </div>
+        </div>
+        <div>
+          <label for="parallelism" class="block text-sm font-medium text-gray-300 mb-1">Paralelismo (p)</label>
+          <input
+            type="range"
+            id="parallelism"
+            min="1"
+            max="16"
+            value="4"
+            class="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer"
+          />
+          <div class="text-center text-sm text-gray-400 mt-1">
+            <span id="parallelism-value">4</span> threads
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="space-y-4">
+      <div>
+        <label for="ad" class="block text-sm font-medium text-gray-300 mb-1">Dados Associados (Opcional)</label>
+        <input
+          type="text"
+          id="ad"
+          class="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-white focus:ring-2 focus:ring-blue-500 focus:outline-none"
+          placeholder="Dados de contexto adicionais"
+        />
+      </div>
+      <div>
+        <label for="secret" class="block text-sm font-medium text-gray-300 mb-1">Segredo/Pepper (Opcional)</label>
+        <input
+          type="text"
+          id="secret"
+          class="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-white focus:ring-2 focus:ring-blue-500 focus:outline-none"
+          placeholder="Chave secreta do lado do servidor"
+        />
+      </div>
+    </div>
+
+    <div class="text-center">
+      <button
+        id="generate-hash"
+        class="w-full md:w-1/2 bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-6 rounded-lg text-lg transition-transform transform hover:scale-105"
+      >
+        <i class="fas fa-cogs mr-2"></i> Gerar Hash
+      </button>
+    </div>
+
+    <div id="output-container" class="space-y-6 hidden pt-4">
+      <h2 class="text-2xl font-semibold text-center text-white">Resultados Gerados</h2>
+
+      <div>
+        <label for="output-encoded" class="block text-sm font-medium text-gray-300 mb-1">Hash Codificado (Formato PHC)</label>
+        <div class="relative bg-gray-900 rounded-lg">
+          <textarea
+            id="output-encoded"
+            rows="3"
+            class="w-full bg-gray-900 rounded-lg p-4 pr-12 text-green-400 font-mono break-all"
+            readonly
+          ></textarea>
+          <button
+            id="copy-encoded"
+            class="absolute top-2 right-2 bg-gray-700 hover:bg-gray-600 text-gray-300 p-2 rounded-lg"
+            title="Copiar Hash Codificado"
+          >
+            <i class="fas fa-copy"></i>
+          </button>
+        </div>
+      </div>
+
+      <div>
+        <label for="output-raw-hex" class="block text-sm font-medium text-gray-300 mb-1">Hash Bruto (Hexadecimal)</label>
+        <div class="relative bg-gray-900 rounded-lg">
+          <textarea
+            id="output-raw-hex"
+            rows="3"
+            class="w-full bg-gray-900 rounded-lg p-4 pr-12 text-purple-400 font-mono break-all"
+            readonly
+          ></textarea>
+          <button
+            id="copy-raw-hex"
+            class="absolute top-2 right-2 bg-gray-700 hover:bg-gray-600 text-gray-300 p-2 rounded-lg"
+            title="Copiar Hash Bruto (Hex)"
+          >
+            <i class="fas fa-copy"></i>
+          </button>
+        </div>
+      </div>
+
+      <div id="message-box" class="text-center p-3 rounded-lg"></div>
+    </div>
+
+    <div id="loader-container" class="hidden flex justify-center items-center">
+      <div class="loader ease-linear rounded-full border-4 border-t-4 border-gray-500 h-12 w-12"></div>
+    </div>
+  </div>
+
+  <script>
+    document.addEventListener('DOMContentLoaded', function () {
+      const passwordInput = document.getElementById('password');
+      const togglePasswordBtn = document.getElementById('toggle-password');
+      const togglePasswordIcon = document.getElementById('toggle-password-icon');
+      const saltInput = document.getElementById('salt');
+      const generateSaltBtn = document.getElementById('generate-salt');
+      const hashLengthSlider = document.getElementById('hash-length');
+      const hashLengthValue = document.getElementById('hash-length-value');
+      const memoryCostSlider = document.getElementById('memory-cost');
+      const memoryCostValue = document.getElementById('memory-cost-value');
+      const timeCostSlider = document.getElementById('time-cost');
+      const timeCostValue = document.getElementById('time-cost-value');
+      const parallelismSlider = document.getElementById('parallelism');
+      const parallelismValue = document.getElementById('parallelism-value');
+      const adInput = document.getElementById('ad');
+      const secretInput = document.getElementById('secret');
+      const generateHashBtn = document.getElementById('generate-hash');
+      const outputContainer = document.getElementById('output-container');
+      const outputEncodedElem = document.getElementById('output-encoded');
+      const copyEncodedBtn = document.getElementById('copy-encoded');
+      const outputRawHexElem = document.getElementById('output-raw-hex');
+      const copyRawHexBtn = document.getElementById('copy-raw-hex');
+      const loaderContainer = document.getElementById('loader-container');
+      const messageBox = document.getElementById('message-box');
+
+      togglePasswordBtn.addEventListener('click', () => {
+        const type = passwordInput.getAttribute('type') === 'password' ? 'text' : 'password';
+        passwordInput.setAttribute('type', type);
+        togglePasswordIcon.classList.toggle('fa-eye');
+        togglePasswordIcon.classList.toggle('fa-eye-slash');
+      });
+
+      hashLengthSlider.addEventListener('input', () => (hashLengthValue.textContent = hashLengthSlider.value));
+      timeCostSlider.addEventListener('input', () => (timeCostValue.textContent = timeCostSlider.value));
+      parallelismSlider.addEventListener('input', () => (parallelismValue.textContent = parallelismSlider.value));
+      memoryCostSlider.addEventListener('input', () => {
+        const kib = memoryCostSlider.value;
+        const mib = (kib / 1024).toFixed(0);
+        memoryCostValue.textContent = `${kib} KiB (${mib} MiB)`;
+      });
+
+      generateSaltBtn.addEventListener('click', () => {
+        const saltBytes = new Uint8Array(16);
+        window.crypto.getRandomValues(saltBytes);
+        saltInput.value = Array.from(saltBytes).map((b) => b.toString(16).padStart(2, '0')).join('');
+      });
+
+      function hexToUint8Array(hexString) {
+        const cleanHexString = hexString.replace(/\s/g, '');
+        if (cleanHexString.length % 2 !== 0) return null;
+        try {
+          const bytes = new Uint8Array(cleanHexString.length / 2);
+          for (let i = 0; i < cleanHexString.length; i += 2) {
+            const byteValue = parseInt(cleanHexString.substr(i, 2), 16);
+            if (isNaN(byteValue)) return null;
+            bytes[i / 2] = byteValue;
+          }
+          return bytes;
+        } catch (e) {
+          return null;
+        }
+      }
+
+      function copyToClipboard(element, successMessage) {
+        navigator.clipboard.writeText(element.value).then(() => {
+          showMessage(successMessage, 'success');
+        }).catch(() => {
+          showMessage('Falha ao copiar.', 'error');
+        });
+      }
+
+      copyEncodedBtn.addEventListener('click', () => copyToClipboard(outputEncodedElem, 'Hash codificado copiado!'));
+      copyRawHexBtn.addEventListener('click', () => copyToClipboard(outputRawHexElem, 'Hash bruto (Hex) copiado!'));
+
+      function showMessage(text, type) {
+        messageBox.textContent = text;
+        const colors = {
+          success: 'bg-green-900 text-green-300',
+          error: 'bg-red-900 text-red-300',
+          info: 'bg-gray-700 text-gray-300',
+        };
+        messageBox.className = `text-center p-3 rounded-lg ${colors[type] || colors.info}`;
+      }
+
+      generateHashBtn.addEventListener('click', async () => {
+        if (!passwordInput.value) {
+          showMessage('Por favor, insira uma senha.', 'error');
+          return;
+        }
+
+        const saltBytes = hexToUint8Array(saltInput.value);
+        if (!saltBytes) {
+          showMessage('O formato do Salt (hexadecimal) é inválido.', 'error');
+          return;
+        }
+
+        loaderContainer.classList.remove('hidden');
+        outputContainer.classList.add('hidden');
+        generateHashBtn.disabled = true;
+
+        try {
+          const options = {
+            pass: passwordInput.value,
+            salt: saltBytes,
+            time: parseInt(timeCostSlider.value, 10),
+            mem: parseInt(memoryCostSlider.value, 10),
+            hashLen: parseInt(hashLengthSlider.value, 10),
+            parallelism: parseInt(parallelismSlider.value, 10),
+            type: argon2.ArgonType.Argon2id,
+            ad: adInput.value ? new TextEncoder().encode(adInput.value) : undefined,
+            secret: secretInput.value ? new TextEncoder().encode(secretInput.value) : undefined,
+          };
+
+          const result = await argon2.hash(options);
+
+          outputEncodedElem.value = result.encoded;
+          outputRawHexElem.value = result.hashHex;
+
+          outputContainer.classList.remove('hidden');
+          showMessage('Hash gerado com sucesso.', 'success');
+        } catch (err) {
+          console.error(err);
+          showMessage(`Erro ao gerar o hash: ${err.message || 'Ocorreu um erro desconhecido.'}`, 'error');
+        } finally {
+          loaderContainer.classList.add('hidden');
+          generateHashBtn.disabled = false;
+        }
+      });
+
+      generateSaltBtn.click();
+    });
+  </script>
+</body>
+</html>
