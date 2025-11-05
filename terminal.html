@@ -7,18 +7,15 @@
     <!-- Carrega o TailwindCSS via CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
-        /* Força o visual pixelado/retrô no canvas */
+        /* ... (estilos existentes de canvas, hiddenInput, keyframes) ... */
         canvas {
             image-rendering: -moz-crisp-edges;
             image-rendering: -webkit-crisp-edges;
             image-rendering: pixelated;
             image-rendering: crisp-edges;
-            /* Garante que o canvas não cause "flash" ao focar no input invisível */
             outline: none;
             -webkit-tap-highlight-color: transparent;
         }
-
-        /* Input invisível para capturar o teclado móvel */
         #hiddenInput {
             position: absolute;
             top: -100px;
@@ -28,8 +25,6 @@
             height: 0;
             pointer-events: none;
         }
-
-        /* Estilo para o cursor piscando */
         @keyframes blink {
             0%, 49% { opacity: 1; }
             50%, 100% { opacity: 0; }
@@ -41,27 +36,26 @@
 </head>
 <body class="font-mono text-gray-200 bg-gray-900 h-full overflow-hidden">
 
-    <!-- O Canvas do Terminal ocupa a tela inteira -->
-    <canvas id="terminalCanvas" class="w-screen h-screen bg-black cursor-text"></canvas>
+    <!-- NOVO: Indicador de Carregamento -->
+    <div id="loadingIndicator" class="fixed inset-0 flex items-center justify-center bg-gray-900 text-white z-50">
+        <p class="text-lg animate-pulse">Carregando terminal...</p>
+    </div>
 
-    <!-- Input invisível para teclado móvel -->
+    <!-- Canvas do Terminal (agora oculto por padrão) -->
+    <canvas id="terminalCanvas" class="w-screen h-screen bg-black cursor-text hidden"></canvas>
+
+    <!-- ... (hiddenInput e configModal permanecem os mesmos) ... -->
     <input type="text" id="hiddenInput" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
 
-    <!-- Modal de Configuração (Oculto por padrão) -->
     <div id="configModal" class="fixed inset-0 bg-black bg-opacity-80 backdrop-blur-sm overflow-y-auto py-10 hidden">
-        
-        <!-- Conteúdo do Modal -->
+        <!-- Conteúdo do Modal (inalterado) -->
         <div class="relative w-full max-w-6xl mx-auto bg-gray-800 rounded-lg shadow-xl p-6">
             
-            <!-- Botão de Fechar -->
             <button id="closeModalButton" class="absolute top-4 right-4 text-gray-400 hover:text-white text-3xl leading-none">&times;</button>
-
             <h2 class="text-2xl font-bold text-white mb-6">Configurações do Terminal</h2>
-
-            <!-- Grid de Configurações -->
+            
             <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-
-                <!-- Card: Dimensões -->
+                <!-- Card: Dimensões (inalterado) -->
                 <div class="bg-gray-700 p-5 rounded-lg">
                     <h3 class="text-lg font-semibold text-white mb-4">Dimensões</h3>
                     <div class="space-y-4">
@@ -76,7 +70,7 @@
                     </div>
                 </div>
 
-                <!-- Card: Personalização -->
+                <!-- Card: Personalização (inalterado) -->
                 <div class="bg-gray-700 p-5 rounded-lg">
                     <h3 class="text-lg font-semibold text-white mb-4">Personalização</h3>
                     <div class="space-y-4">
@@ -91,7 +85,7 @@
                     </div>
                 </div>
 
-                <!-- Card: Formatos JSON -->
+                <!-- Card: Formatos JSON (inalterado) -->
                 <div class="bg-gray-700 p-5 rounded-lg">
                     <h3 class="text-lg font-semibold text-white mb-4">Formatos JSON Esperados</h3>
                     <p class="text-xs text-gray-400 mb-2">Use o código ASCII decimal como chave.</p>
@@ -116,10 +110,9 @@
 }
                     </pre>
                 </div>
-
             </div>
 
-            <!-- Botão de Aplicar -->
+            <!-- Botão de Aplicar (inalterado) -->
             <div class="mt-8 text-right">
                 <button id="applyButton" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-6 rounded-lg shadow-md transition duration-150">
                     Aplicar e Fechar
@@ -134,8 +127,10 @@
         const canvas = document.getElementById('terminalCanvas');
         const ctx = canvas.getContext('2d');
         const hiddenInput = document.getElementById('hiddenInput');
+        const loadingIndicator = document.getElementById('loadingIndicator'); // NOVO
         
         // --- Elementos do Modal ---
+        // ... (configModal, applyButton, etc. - inalterados) ...
         const configModal = document.getElementById('configModal');
         const applyButton = document.getElementById('applyButton');
         const closeModalButton = document.getElementById('closeModalButton');
@@ -144,10 +139,12 @@
         const fontLoader = document.getElementById('fontLoader');
         const colorLoader = document.getElementById('colorLoader');
 
+
         // --- Estado do Terminal ---
         let terminalRows = 24;
         let terminalCols = 80;
         
+        // fontSet agora conterá a fonte PRÉ-PROCESSADA (com chaves de caractere)
         let fontSet = {
             charWidth: 8,
             charHeight: 8,
@@ -155,29 +152,29 @@
         };
         
         let colors = {
-            fg: '#FFFFFF', // Cor do texto padrão
-            bg: '#000000', // Cor de fundo
-            cursor: '#FFFFFF' // Cor do cursor
+            fg: '#FFFFFF',
+            bg: '#000000',
+            cursor: '#FFFFFF'
         };
 
-        // Fallback de emergência (se o JSON falhar)
+        // Fallback de emergência (ATUALIZADO para usar chaves de caractere)
         const emergencyFont = {
             charWidth: 8,
             charHeight: 8,
             data: {
-                "32": [ "00000000", "00000000", "00000000", "00000000", "00000000", "00000000", "00000000", "00000000" ],
-                "63": [ "00111100", "01000010", "01000010", "00000100", "00011000", "00000000", "00011000", "00000000" ]
+                " ": [ "00000000", "00000000", "00000000", "00000000", "00000000", "00000000", "00000000", "00000000" ],
+                "?": [ "00111100", "01000010", "01000010", "00000100", "00011000", "00000000", "00011000", "00000000" ]
             }
         };
 
-        let screenData = []; // Array 2D [linha][coluna] -> { char: 'A', fg: '#FFF', bg: '#000' }
+        // ... (screenData, cursor, etc. - inalterados) ...
+        let screenData = [];
         let cursor = { x: 0, y: 0, visible: true };
         let blinkInterval;
         let isModalOpen = false;
+        let currentInputLine = "";
+        let promptX = 2;
 
-        // --- Estado da Linha de Comando ---
-        let currentInputLine = ""; // Rastreia o input atual
-        let promptX = 2; // Posição X onde o prompt ('> ') termina
 
         // --- Inicialização ---
 
@@ -187,10 +184,18 @@
                 await loadSettingsFromStorage();
             } catch (err) {
                 console.error("Falha ao carregar configurações ou fonte padrão:", err);
-                fontSet = emergencyFont; // Usa a fonte de emergência
+                fontSet = emergencyFont; // Usa a fonte de emergência (já processada)
             }
             
             initializeTerminal();
+
+            // --- NOVO: Lógica de Exibição ---
+            // Esconde o loading e mostra o terminal
+            loadingIndicator.classList.add('hidden');
+            canvas.classList.remove('hidden');
+            
+            // Foca para input de teclado desktop
+            focusHiddenInput();
 
             // Event Listeners Globais
             window.addEventListener('resize', resizeCanvasDisplay);
@@ -204,9 +209,28 @@
             colorLoader.addEventListener('change', loadColors);
         };
 
+        // NOVO: Pré-processa a fonte de chaves ASCII para chaves de caractere
+        function processFont(rawFont) {
+            const processedData = {};
+            // Itera sobre as chaves (ex: "65")
+            for (const asciiCode in rawFont.data) {
+                // Converte a chave "65" para o caractere "A"
+                const char = String.fromCharCode(parseInt(asciiCode, 10));
+                // Armazena no novo objeto: processedData["A"] = [...]
+                processedData[char] = rawFont.data[asciiCode];
+            }
+            
+            // Retorna a estrutura da fonte, mas com os dados processados
+            return {
+                charWidth: rawFont.charWidth,
+                charHeight: rawFont.charHeight,
+                data: processedData
+            };
+        }
+
         // Carrega configurações do localStorage ou busca a fonte padrão
         async function loadSettingsFromStorage() {
-            // 1. Carregar Dimensões
+            // ... (Carregar Dimensões e Cores - inalterado) ...
             const savedDims = localStorage.getItem('terminalDimensions');
             if (savedDims) {
                 const { rows, cols } = JSON.parse(savedDims);
@@ -216,17 +240,18 @@
             rowsInput.value = terminalRows;
             colsInput.value = terminalCols;
 
-            // 2. Carregar Cores
             const savedColors = localStorage.getItem('terminalColors');
             if (savedColors) {
                 colors = { ...colors, ...JSON.parse(savedColors) };
             }
 
-            // 3. Carregar Fonte
+
+            // 3. Carregar Fonte (ATUALIZADO com processamento)
             const savedFont = localStorage.getItem('terminalFont');
             if (savedFont) {
-                fontSet = JSON.parse(savedFont);
-                console.log("Fonte carregada do localStorage.");
+                // Processa a fonte do localStorage
+                fontSet = processFont(JSON.parse(savedFont));
+                console.log("Fonte processada do localStorage.");
             } else {
                 // Se não houver fonte salva, busca a padrão
                 console.log("Buscando defaultFont.json...");
@@ -234,21 +259,19 @@
                 if (!response.ok) {
                     throw new Error(`HTTP error! status: ${response.status}`);
                 }
-                fontSet = await response.json();
-                console.log("Fonte padrão carregada do arquivo.");
+                const rawFont = await response.json();
+                // Processa a fonte baixada
+                fontSet = processFont(rawFont);
+                console.log("Fonte padrão carregada e processada.");
             }
         }
         
         // (Re)Inicia o terminal com as configurações atuais
         function initializeTerminal() {
-            // 1. Ajustar tamanho do <canvas> (resolução interna)
+            // ... (código de inicialização inalterado) ...
             canvas.width = terminalCols * fontSet.charWidth;
             canvas.height = terminalRows * fontSet.charHeight;
-            
-            // 2. Ajustar tamanho de exibição do <canvas> (CSS)
             resizeCanvasDisplay();
-
-            // 3. Limpar e preencher o buffer da tela
             screenData = [];
             for (let y = 0; y < terminalRows; y++) {
                 const row = [];
@@ -257,37 +280,27 @@
                 }
                 screenData.push(row);
             }
-
-            // 4. Resetar cursor e desenhar prompt inicial
             cursor.x = 0;
             cursor.y = 0;
             writePrompt();
-
-            // 5. Iniciar o cursor piscando
             if (blinkInterval) clearInterval(blinkInterval);
-            blinkInterval = setInterval(toggleCursor, 500); // Pisca a cada 500ms
-
-            // 6. Desenhar a tela
+            blinkInterval = setInterval(toggleCursor, 500);
             drawScreen();
         }
 
         // --- Lógica de Renderização (Canvas) ---
 
-        // Ajusta o tamanho de exibição (CSS) do canvas para caber na tela
+        // ... (resizeCanvasDisplay e drawScreen - inalterados) ...
         function resizeCanvasDisplay() {
             const viewportWidth = window.innerWidth;
             const viewportHeight = window.innerHeight;
-
-            // Define o tamanho de exibição do canvas para 100% da tela
             canvas.style.width = `${viewportWidth}px`;
             canvas.style.height = `${viewportHeight}px`;
         }
 
-        // Desenha *toda* a tela com base no `screenData`
         function drawScreen() {
             ctx.fillStyle = colors.bg;
             ctx.fillRect(0, 0, canvas.width, canvas.height);
-
             for (let y = 0; y < terminalRows; y++) {
                 for (let x = 0; x < terminalCols; x++) {
                     const cell = screenData[y][x];
@@ -296,28 +309,25 @@
                     }
                 }
             }
-
-            // Desenha o cursor se estiver visível
             if (cursor.visible && !isModalOpen) {
                 drawCursor();
             }
         }
         
-        // Desenha um único caractere na grade
+        // Desenha um único caractere na grade (ATUALIZADO)
         function drawChar(char, x, y, fg, bg) {
-            const charDataKey = String(char.charCodeAt(0)); // Converte char para código ASCII
-            const charData = fontSet.data[charDataKey] || fontSet.data["63"]; // Usa "?" como fallback
+            // A MÁGICA DA OTIMIZAÇÃO:
+            // A busca agora é direta, sem NENHUMA conversão.
+            const charData = fontSet.data[char] || fontSet.data["?"]; // Usa "?" como fallback
             
             if (!charData) return; // Caractere não encontrado
 
             const startX = x * fontSet.charWidth;
             const startY = y * fontSet.charHeight;
 
-            // Desenha o fundo da célula
+            // ... (lógica de desenho de pixel inalterada) ...
             ctx.fillStyle = bg;
             ctx.fillRect(startX, startY, fontSet.charWidth, fontSet.charHeight);
-
-            // Desenha os pixels do caractere
             ctx.fillStyle = fg;
             for (let row = 0; row < fontSet.charHeight; row++) {
                 if (!charData[row]) continue;
@@ -329,29 +339,25 @@
             }
         }
 
-        // Desenha o cursor na posição atual
+        // ... (drawCursor, toggleCursor, writeChar, scrollScreen, handleControlKeys) ...
+        // ... (writePrompt, processCommand, focusHiddenInput, handleKeydown) ...
+        // ... (showConfigModal, hideConfigModal, applySettings) ...
+        // (Todas as funções acima permanecem inalteradas)
+        
         function drawCursor() {
             const x = cursor.x * fontSet.charWidth;
             const y = cursor.y * fontSet.charHeight;
-            
-            // Adiciona classe de animação para o cursor (se quisermos um bloco piscando)
-            // Por simplicidade, vamos usar um sublinhado sólido que pisca via 'toggleCursor'
-            
             ctx.fillStyle = colors.cursor;
-            ctx.fillRect(x, y + fontSet.charHeight - 2, fontSet.charWidth, 2); // Sublinhado
+            ctx.fillRect(x, y + fontSet.charHeight - 2, fontSet.charWidth, 2);
         }
         
-        // Alterna a visibilidade do cursor e redesenha a célula
         function toggleCursor() {
             if (isModalOpen) {
                 cursor.visible = false;
-                drawScreen(); // Garante que o cursor desapareça quando o modal abrir
+                drawScreen();
                 return;
             }
-
             cursor.visible = !cursor.visible;
-            
-            // Redesenha apenas a célula do cursor para eficiência
             const cell = screenData[cursor.y][cursor.x];
             drawChar(cell.char, cursor.x, cursor.y, cell.fg, cell.bg);
             if (cursor.visible) {
@@ -359,153 +365,116 @@
             }
         }
 
-        // --- Lógica de Manipulação do Terminal ---
-
-        // Escreve um caractere na tela e avança o cursor
         function writeChar(char) {
             if (cursor.y >= terminalRows) {
                 scrollScreen();
                 cursor.y = terminalRows - 1;
             }
-            
-            // Atualiza o buffer da tela
             screenData[cursor.y][cursor.x] = { char, fg: colors.fg, bg: colors.bg };
-            
-            // Desenha o caractere imediatamente
             drawChar(char, cursor.x, cursor.y, colors.fg, colors.bg);
-
-            // Avança o cursor
             cursor.x++;
             if (cursor.x >= terminalCols) {
                 cursor.x = 0;
                 cursor.y++;
             }
-            
-            // Força o cursor a ser visível ao digitar
             cursor.visible = true;
-            drawCursor(); // Desenha o cursor na nova posição
+            drawCursor();
         }
 
-        // Rola a tela inteira para cima em uma linha
         function scrollScreen() {
-            // Move todas as linhas para cima
             for (let y = 0; y < terminalRows - 1; y++) {
                 screenData[y] = screenData[y + 1];
             }
-            
-            // Cria uma nova linha vazia no final
             const newRow = [];
             for (let x = 0; x < terminalCols; x++) {
                 newRow.push({ char: ' ', fg: colors.fg, bg: colors.bg });
             }
             screenData[terminalRows - 1] = newRow;
-            
-            // Redesenha a tela inteira após a rolagem
             drawScreen();
         }
 
-        // Lida com teclas de controle (Enter, Backspace)
         function handleControlKeys(key) {
             switch (key) {
                 case 'Enter':
                     processCommand(currentInputLine);
-                    currentInputLine = ""; // Reseta o input
+                    currentInputLine = "";
                     cursor.x = 0;
                     cursor.y++;
                     if (cursor.y >= terminalRows) {
                         scrollScreen();
                         cursor.y = terminalRows - 1;
                     }
-                    writePrompt(); // Escreve o próximo prompt
+                    writePrompt();
                     break;
-                
                 case 'Backspace':
-                    // Só permite apagar se estiver depois do prompt
                     if (cursor.x > promptX) {
                         cursor.x--;
-                        writeChar(' '); // Escreve um espaço para apagar
-                        cursor.x--; // Move o cursor de volta
-                        currentInputLine = currentInputLine.slice(0, -1); // Remove do buffer de input
+                        writeChar(' ');
+                        cursor.x--;
+                        currentInputLine = currentInputLine.slice(0, -1);
                     }
                     break;
             }
             drawCursor();
         }
 
-        // --- Lógica de Comando e Input ---
-
         function writePrompt() {
             writeChar('>');
             writeChar(' ');
-            promptX = cursor.x; // Define a posição de início do input
+            promptX = cursor.x;
         }
 
-        // Processa o comando digitado
         function processCommand(cmd) {
             const command = cmd.trim().toLowerCase();
-            
             if (command === "config") {
                 showConfigModal();
             }
-            // Outros comandos podem ser adicionados aqui
         }
 
-        // Dá foco ao input invisível (para teclado móvel)
         function focusHiddenInput() {
             if (isModalOpen) return;
             hiddenInput.focus();
         }
 
-        // Manipulador principal de entrada de teclado
         function handleKeydown(e) {
             e.preventDefault();
             if (isModalOpen) return;
-
             const key = e.key;
-
             if (key.length === 1) {
-                // É um caractere imprimível
                 writeChar(key);
-                currentInputLine += key; // Adiciona ao buffer de input
+                currentInputLine += key;
             } else {
-                // É uma tecla de controle
                 handleControlKeys(key);
             }
         }
 
-        // --- Lógica do Modal de Configuração ---
-
         function showConfigModal() {
             isModalOpen = true;
             cursor.visible = false;
-            drawScreen(); // Redesenha para esconder o cursor
+            drawScreen();
             configModal.classList.remove('hidden');
         }
 
         function hideConfigModal() {
             isModalOpen = false;
             configModal.classList.add('hidden');
-            focusHiddenInput(); // Devolve o foco ao terminal
+            focusHiddenInput();
         }
 
-        // Aplica novas dimensões
         function applySettings() {
             const newRows = parseInt(rowsInput.value, 10);
             const newCols = parseInt(colsInput.value, 10);
-            
             if (newRows > 0 && newCols > 0) {
                 terminalRows = newRows;
                 terminalCols = newCols;
-                
-                // Salva no localStorage
                 localStorage.setItem('terminalDimensions', JSON.stringify({ rows: terminalRows, cols: terminalCols }));
-
-                initializeTerminal(); // Reinicia o terminal com novas dimensões
+                initializeTerminal();
             }
             hideConfigModal();
         }
 
-        // Carrega um arquivo JSON de fonte
+
+        // Carrega um arquivo JSON de fonte (ATUALIZADO)
         function loadFont(e) {
             const file = e.target.files[0];
             if (!file) return;
@@ -513,13 +482,16 @@
             const reader = new FileReader();
             reader.onload = (event) => {
                 try {
-                    const newFont = JSON.parse(event.target.result);
-                    // Validação simples
-                    if (newFont.charWidth && newFont.charHeight && newFont.data) {
-                        fontSet = newFont;
-                        // Salva no localStorage
-                        localStorage.setItem('terminalFont', JSON.stringify(fontSet));
-                        console.log("Nova fonte carregada e salva.");
+                    const rawFont = JSON.parse(event.target.result); // Fonte crua
+                    // Validação
+                    if (rawFont.charWidth && rawFont.charHeight && rawFont.data) {
+                        // Processa a fonte crua para o formato otimizado
+                        fontSet = processFont(rawFont); 
+                        
+                        // Salva a fonte CRUA (ASCII-keyed) no localStorage
+                        localStorage.setItem('terminalFont', JSON.stringify(rawFont));
+                        
+                        console.log("Nova fonte carregada, processada e salva.");
                         initializeTerminal(); // Reinicia imediatamente
                     } else {
                         alert("Arquivo de fonte JSON inválido. Formato esperado: { charWidth, charHeight, data: {...} }");
@@ -532,23 +504,18 @@
             reader.readAsText(file);
         }
 
-        // Carrega um arquivo JSON de cores
+        // ... (loadColors - inalterado) ...
         function loadColors(e) {
             const file = e.target.files[0];
             if (!file) return;
-
             const reader = new FileReader();
             reader.onload = (event) => {
                 try {
                     const newColors = JSON.parse(event.target.result);
-                    // Mescla cores (permite arquivos parciais)
                     colors = { ...colors, ...newColors };
-                    
-                    // Salva no localStorage
                     localStorage.setItem('terminalColors', JSON.stringify(colors));
                     console.log("Novas cores carregadas e salvas.");
-                    initializeTerminal(); // Reinicia imediatamente
-                    
+                    initializeTerminal();
                 } catch (err) {
                     console.error("Erro ao ler o arquivo JSON de cores:", err.message);
                     alert("Erro ao ler o arquivo JSON: " + err.message);
