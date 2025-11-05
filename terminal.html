@@ -546,6 +546,7 @@
                         console.log("Fonte personalizada carregada:", fontSet);
                         // Salva fonte no localStorage
                         localStorage.setItem(STORAGE_KEYS.FONT, jsonString);
+                        initializeTerminal(); // <-- CORREÇÃO: Aplica a fonte imediatamente
                     } else {
                         console.error("Formato de fonte JSON inválido!");
                     }
@@ -571,6 +572,7 @@
                     console.log("Cores personalizadas carregadas:", colors);
                     // Salva cores no localStorage
                     localStorage.setItem(STORAGE_KEYS.COLORS, JSON.stringify(colors));
+                    initializeTerminal(); // <-- CORREÇÃO: Aplica as cores imediatamente
                 } catch (err) {
                     console.error("Erro ao ler o arquivo JSON de cores: " + err.message);
                 }
