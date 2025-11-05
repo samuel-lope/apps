@@ -28,8 +28,6 @@
             height: 0;
             pointer-events: none;
         }
-
-        /* Estilo para o cursor piscando (removido, pois agora é via JS) */
     </style>
 </head>
 <body class="font-mono text-gray-200 bg-gray-900 h-full overflow-hidden">
@@ -55,7 +53,7 @@
             <h2 class="text-2xl font-bold text-white mb-6">Configurações do Terminal</h2>
 
             <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <!-- Card: Dimensões -->
+                <!-- Card: Dimensões (inalterado) -->
                 <div class="bg-gray-700 p-5 rounded-lg">
                     <h3 class="text-lg font-semibold text-white mb-4">Dimensões</h3>
                     <div class="space-y-4">
@@ -70,7 +68,7 @@
                     </div>
                 </div>
 
-                <!-- Card: Personalização -->
+                <!-- Card: Personalização (inalterado) -->
                 <div class="bg-gray-700 p-5 rounded-lg">
                     <h3 class="text-lg font-semibold text-white mb-4">Personalização</h3>
                     <div class="space-y-4">
@@ -85,7 +83,7 @@
                     </div>
                 </div>
 
-                <!-- Card: Formatos JSON -->
+                <!-- Card: Formatos JSON (inalterado) -->
                 <div class="bg-gray-700 p-5 rounded-lg">
                     <h3 class="text-lg font-semibold text-white mb-4">Formatos JSON Esperados</h3>
                     <p class="text-xs text-gray-400 mb-2">Use o código ASCII decimal como chave.</p>
@@ -112,7 +110,7 @@
                 </div>
             </div>
 
-            <!-- Botão de Aplicar -->
+            <!-- Botão de Aplicar (inalterado) -->
             <div class="mt-8 text-right">
                 <button id="applyButton" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-6 rounded-lg shadow-md transition duration-150">
                     Aplicar e Fechar
@@ -170,9 +168,11 @@
         let currentInputLine = "";
         let promptX = 2;
 
-        // --- NOVO: Lógica de Animação (para Bug 3) ---
+        // --- Lógica de Animação (CORRIGIDO para Bug 2) ---
         let lastBlinkTime = 0;
+        let lastInputTime = 0; // Registra a última vez que o usuário digitou
         const BLINK_INTERVAL_MS = 500;
+        const IDLE_TIME_MS = 1000; // 1 segundo de ociosidade para começar a piscar
 
 
         // --- Inicialização ---
@@ -197,7 +197,6 @@
             window.addEventListener('resize', resizeCanvasDisplay);
             canvas.addEventListener('click', focusHiddenInput);
             hiddenInput.addEventListener('keydown', handleKeydown);
-            // NOVO: Listener para Bug 2 (Teclado Móvel)
             hiddenInput.addEventListener('input', handleMobileInput);
 
 
@@ -207,17 +206,24 @@
             fontLoader.addEventListener('change', loadFont);
             colorLoader.addEventListener('change', loadColors);
 
-            // NOVO: Inicia o loop de animação (para Bug 3)
+            // Inicia o loop de animação
             requestAnimationFrame(animationLoop);
         };
 
-        // NOVO: Loop de Animação (para Bug 3)
+        // Loop de Animação (CORRIGIDO para Bug 2)
         function animationLoop(timestamp) {
-            // Pisca o cursor
-            if (timestamp - lastBlinkTime > BLINK_INTERVAL_MS) {
+            // Só executa a lógica de piscar se o usuário estiver ocioso
+            if (timestamp - lastInputTime > IDLE_TIME_MS) { 
+                if (timestamp - lastBlinkTime > BLINK_INTERVAL_MS) {
+                    lastBlinkTime = timestamp;
+                    toggleCursorVisibility();
+                }
+            } else {
+                // Se o usuário está ativo, reseta o início do pisca-pisca
+                // para que ele comece a contar 500ms *depois* que ficar ocioso
                 lastBlinkTime = timestamp;
-                toggleCursorVisibility();
             }
+            
             // Continua o loop
             requestAnimationFrame(animationLoop);
         }
@@ -291,8 +297,6 @@
             cursor.y = 0;
             currentInputLine = "";
             writePrompt();
-
-            // REMOVIDO: setInterval (Corrigido Bug 3)
             
             drawScreen();
         }
@@ -314,14 +318,12 @@
             for (let y = 0; y < terminalRows; y++) {
                 for (let x = 0; x < terminalCols; x++) {
                     const cell = screenData[y][x];
-                    // Otimização: Só desenha se não for um espaço vazio no fundo padrão
                     if (cell.char !== ' ' || cell.bg !== colors.bg) {
                          drawChar(cell.char, x, y, cell.fg, cell.bg);
                     }
                 }
             }
 
-            // Desenha o cursor se estiver visível
             if (cursor.visible && !isModalOpen) {
                 drawCursor();
             }
@@ -335,11 +337,9 @@
             const startX = x * fontSet.charWidth;
             const startY = y * fontSet.charHeight;
 
-            // Desenha o fundo da célula
             ctx.fillStyle = bg;
             ctx.fillRect(startX, startY, fontSet.charWidth, fontSet.charHeight);
 
-            // Desenha os pixels do caractere
             ctx.fillStyle = fg;
             for (let row = 0; row < fontSet.charHeight; row++) {
                 if (!charData[row]) continue;
@@ -353,60 +353,68 @@
 
         // Desenha o cursor na posição atual
         function drawCursor() {
+            // Garante que o cursor só seja desenhado dentro dos limites
+            if (cursor.y >= terminalRows || cursor.x >= terminalCols) return;
             const x = cursor.x * fontSet.charWidth;
             const y = cursor.y * fontSet.charHeight;
             ctx.fillStyle = colors.cursor;
             ctx.fillRect(x, y + fontSet.charHeight - 2, fontSet.charWidth, 2); // Sublinhado
         }
         
-        // --- Funções de Manipulação do Cursor (para Bug 1 e 3) ---
+        // --- Funções de Manipulação do Cursor (CORRIGIDO para Bug 1) ---
 
-        // NOVO: Helper para redesenhar apenas a célula do cursor
+        // Helper para redesenhar APENAS o caractere na célula do cursor
         function redrawCursorCell() {
             if (cursor.y >= terminalRows || cursor.x >= terminalCols) return;
             
             const cell = screenData[cursor.y][cursor.x];
             drawChar(cell.char, cursor.x, cursor.y, cell.fg, cell.bg);
             
-            if (cursor.visible && !isModalOpen) {
-                drawCursor();
-            }
+            // REMOVIDA: A lógica de desenhar o cursor foi movida
         }
 
-        // NOVO: Lógica de piscar (separada do setInterval)
+        // Lógica de piscar (agora separada)
         function toggleCursorVisibility() {
             if (isModalOpen) {
-                if (cursor.visible) { // Se o modal acabou de abrir, apaga o cursor
+                if (cursor.visible) {
                     cursor.visible = false;
-                    redrawCursorCell();
+                    redrawCursorCell(); // Apenas apaga
                 }
-                return; // Não pisca se o modal estiver aberto
+                return;
             }
+
             cursor.visible = !cursor.visible;
-            redrawCursorCell();
+            
+            if (cursor.visible) {
+                drawCursor(); // Mostra
+            } else {
+                redrawCursorCell(); // Esconde (redesenhando o char por cima)
+            }
         }
 
-        // NOVO: Função "burra" para Bug 1
-        // Apenas define um char na tela, sem mover o cursor
+        // Função "burra" para Bug 1 (inalterada, estava correta)
         function setChar(x, y, char, fg = colors.fg, bg = colors.bg) {
             if (x < 0 || x >= terminalCols || y < 0 || y >= terminalRows) return;
             screenData[y][x] = { char, fg, bg };
-            drawChar(char, x, y, fg, bg); // Redesenha apenas essa célula
+            drawChar(char, x, y, fg, bg);
         }
 
         // --- Lógica de Manipulação do Terminal ---
 
-        // Escreve um caractere na tela e avança o cursor (Atualizado)
+        // Escreve um caractere na tela e avança o cursor (CORRIGIDO para Bug 1 e 2)
         function writeChar(char) {
             if (cursor.y >= terminalRows) {
                 scrollScreen();
                 cursor.y = terminalRows - 1;
             }
             
-            // Usa a nova função setChar
+            // Apaga o cursor da posição antiga (se estiver visível)
+            if(cursor.visible) {
+                redrawCursorCell();
+            }
+
             setChar(cursor.x, cursor.y, char, colors.fg, colors.bg);
 
-            // Avança o cursor
             cursor.x++;
             if (cursor.x >= terminalCols) {
                 cursor.x = 0;
@@ -417,63 +425,58 @@
                 }
             }
             
-            // Força o cursor a ser visível e reseta o pisca-pisca
+            // Força o cursor a ser visível e reseta o timer de ociosidade
             cursor.visible = true;
-            redrawCursorCell(); // Redesenha a *nova* posição do cursor
-            lastBlinkTime = performance.now(); // Reseta o timer
+            drawCursor(); // CORRIGIDO: Desenha o cursor na *nova* posição
+            lastInputTime = performance.now(); // CORRIGIDO: Reseta o timer de ociosidade
         }
 
         // Rola a tela inteira para cima em uma linha
         function scrollScreen() {
-            screenData.shift(); // Remove a primeira linha (eficiente)
+            screenData.shift();
             
-            // Cria uma nova linha vazia no final
             const newRow = [];
             for (let x = 0; x < terminalCols; x++) {
                 newRow.push({ char: ' ', fg: colors.fg, bg: colors.bg });
             }
-            screenData.push(newRow); // Adiciona a nova linha
+            screenData.push(newRow);
             
-            // Redesenha a tela inteira após a rolagem
             drawScreen();
         }
 
-        // Lida com teclas de controle (Atualizado para Bug 1)
+        // Lida com teclas de controle (CORRIGIDO para Bug 1 e 2)
         function handleControlKeys(key) {
             // Apaga o cursor da posição *atual* antes de qualquer ação
             if (cursor.visible) {
-                redrawCursorCell();
+                redrawCursorCell(); // Agora isso SÓ apaga o cursor
             }
 
             switch (key) {
                 case 'Enter':
                     processCommand(currentInputLine);
-                    currentInputLine = ""; // Reseta o input
+                    currentInputLine = "";
                     cursor.x = 0;
                     cursor.y++;
                     if (cursor.y >= terminalRows) {
                         scrollScreen();
                         cursor.y = terminalRows - 1;
                     }
-                    writePrompt(); // Isso já vai redesenhar o cursor
+                    writePrompt();
                     break;
                 
                 case 'Backspace':
-                    // Só permite apagar se estiver depois do prompt
                     if (cursor.x > promptX) {
-                        cursor.x--; // Move o cursor de volta
-                        currentInputLine = currentInputLine.slice(0, -1); // Remove do buffer
-                        
-                        // Apaga o caractere na *nova* posição
-                        setChar(cursor.x, cursor.y, ' ');
+                        cursor.x--;
+                        currentInputLine = currentInputLine.slice(0, -1);
+                        setChar(cursor.x, cursor.y, ' '); // Apaga o char na nova posição
                     }
                     break;
             }
 
-            // Garante que o cursor esteja visível e reseta o pisca-pisca
+            // Garante que o cursor esteja visível e reseta o timer de ociosidade
             cursor.visible = true;
-            redrawCursorCell();
-            lastBlinkTime = performance.now();
+            drawCursor(); // CORRIGIDO: Desenha o cursor na nova posição
+            lastInputTime = performance.now(); // CORRIGIDO: Reseta o timer de ociosidade
         }
 
         // --- Lógica de Comando e Input ---
@@ -481,7 +484,7 @@
         function writePrompt() {
             writeChar('>');
             writeChar(' ');
-            promptX = cursor.x; // Define a posição de início do input
+            promptX = cursor.x;
         }
 
         function processCommand(cmd) {
@@ -489,19 +492,17 @@
             if (command === "config") {
                 showConfigModal();
             }
-            // Outros comandos podem ser adicionados aqui
         }
 
         // Dá foco ao input invisível (para teclado móvel)
         function focusHiddenInput() {
             if (isModalOpen) return;
-            // Um pequeno timeout pode ajudar em alguns browsers móveis
             setTimeout(() => {
                 hiddenInput.focus();
             }, 10);
         }
 
-        // Manipulador de teclado físico
+        // Manipulador de teclado físico (inalterado)
         function handleKeydown(e) {
             e.preventDefault();
             if (isModalOpen) return;
@@ -509,29 +510,25 @@
             const key = e.key;
 
             if (key.length === 1) {
-                // É um caractere imprimível
                 writeChar(key);
                 currentInputLine += key;
             } else {
-                // É uma tecla de controle (Enter, Backspace, setas, etc.)
                 handleControlKeys(key);
             }
         }
 
-        // NOVO: Manipulador de teclado virtual (para Bug 2)
+        // Manipulador de teclado virtual (inalterado, estava correto)
         function handleMobileInput(e) {
             e.preventDefault();
             if (isModalOpen) return;
 
             const text = e.target.value;
             if (text.length > 0) {
-                // Pega o último caractere. Isso lida com autocompletar e swipe.
                 const char = text.charAt(text.length - 1);
                 writeChar(char);
                 currentInputLine += char;
             }
             
-            // Limpa o input imediatamente para que ele aja como uma tecla
             e.target.value = '';
         }
 
@@ -540,13 +537,14 @@
         function showConfigModal() {
             isModalOpen = true;
             configModal.classList.remove('hidden');
-            // A lógica de piscar (toggleCursorVisibility) vai esconder o cursor
+            // O loop de animação vai detectar o modal e esconder o cursor
         }
 
         function hideConfigModal() {
             isModalOpen = false;
             configModal.classList.add('hidden');
-            focusHiddenInput(); // Devolve o foco ao terminal
+            focusHiddenInput();
+            lastInputTime = performance.now(); // Reseta o timer para não piscar imediatamente
         }
 
         // Aplica novas dimensões
@@ -575,8 +573,9 @@
                 try {
                     const rawFont = JSON.parse(event.target.result);
                     if (rawFont.charWidth && rawFont.charHeight && rawFont.data) {
-                        fontSet = processFont(rawFont); // Processa
-                        localStorage.setItem('terminalFont', JSON.stringify(rawFont)); // Salva a crua
+                        fontSet = processFont(rawFont);
+                    
+                        localStorage.setItem('terminalFont', JSON.stringify(rawFont));
                         
                         console.log("Nova fonte carregada, processada e salva.");
                         initializeTerminal();
