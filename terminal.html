@@ -1,0 +1,427 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Terminal ASCII VT-100</title>
+    <!-- 1. Carrega o TailwindCSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* * Isso é ESSENCIAL para um visual de pixel art. 
+         * Ele desativa o anti-aliasing do navegador ao dimensionar o canvas.
+         */
+        canvas#terminalCanvas {
+            image-rendering: -moz-crisp-edges;
+            image-rendering: -webkit-crisp-edges;
+            image-rendering: pixelated;
+            image-rendering: crisp-edges;
+            /* Um leve brilho para o efeito "brilho do monitor" */
+            box-shadow: 0 0 15px 3px rgba(52, 211, 153, 0.3);
+        }
+    </style>
+</head>
+<body class="bg-gray-900 text-gray-200 font-sans p-4 md:p-8 flex flex-col items-center min-h-screen">
+
+    <div class="w-full max-w-6xl">
+        <h1 class="text-3xl font-bold text-emerald-400 mb-4 text-center">Simulador de Terminal ASCII</h1>
+        
+        <!-- 2. Controles de Configuração -->
+        <div class="bg-gray-800 p-4 rounded-lg shadow-md mb-6 grid grid-cols-1 md:grid-cols-3 gap-4">
+            <!-- Configurações de Dimensão -->
+            <div class="flex flex-col space-y-2">
+                <div class="flex items-center space-x-2">
+                    <label for="rowsInput" class="text-sm font-medium text-gray-300">Linhas:</label>
+                    <input type="number" id="rowsInput" value="25" class="w-20 bg-gray-700 text-white p-2 rounded border border-gray-600 focus:outline-none focus:ring-2 focus:ring-emerald-500">
+                </div>
+                <div class="flex items-center space-x-2">
+                    <label for="colsInput" class="text-sm font-medium text-gray-300">Colunas:</label>
+                    <input type="number" id="colsInput" value="80" class="w-20 bg-gray-700 text-white p-2 rounded border border-gray-600 focus:outline-none focus:ring-2 focus:ring-emerald-500">
+                </div>
+                <button id="applySettings" class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2 px-4 rounded transition-colors duration-200">
+                    Aplicar Tamanho
+                </button>
+            </div>
+            
+            <!-- Configurações de Arquivo -->
+            <div class="flex flex-col space-y-2">
+                <div>
+                    <label for="fontFile" class="block text-sm font-medium text-gray-300 mb-1">Carregar Fonte (.json):</label>
+                    <input type="file" id="fontFile" accept=".json" class="text-sm text-gray-400 file:mr-2 file:py-1 file:px-2 file:rounded file:border-0 file:text-sm file:font-semibold file:bg-emerald-600 file:text-white hover:file:bg-emerald-700">
+                </div>
+                <div>
+                    <label for="colorFile" class="block text-sm font-medium text-gray-300 mb-1">Carregar Cores (.json):</label>
+                    <input type="file" id="colorFile" accept=".json" class="text-sm text-gray-400 file:mr-2 file:py-1 file:px-2 file:rounded file:border-0 file:text-sm file:font-semibold file:bg-blue-600 file:text-white hover:file:bg-blue-700">
+                </div>
+            </div>
+
+            <!-- Informações de Formato -->
+            <div class="text-xs text-gray-400 bg-gray-900 p-3 rounded border border-gray-700">
+                <p class="font-bold">Formato da Fonte:</p>
+                <pre class="whitespace-pre-wrap">{
+  "charWidth": 8, "charHeight": 8,
+  "data": { "A": ["010", ...], ... }
+}</pre>
+                <p class="font-bold mt-2">Formato das Cores:</p>
+                <pre>{ "bg": "#000", "fg": "#0f0", "cursor": "#fff" }</pre>
+            </div>
+        </div>
+
+        <!-- 3. O Canvas do Terminal -->
+        <!-- O tabindex="0" permite que o canvas receba foco para eventos de teclado -->
+        <div class="w-full flex justify-center">
+            <canvas id="terminalCanvas" class="bg-black rounded-md border-2 border-gray-700" tabindex="0">
+                Seu navegador não suporta o elemento canvas.
+            </canvas>
+        </div>
+    </div>
+
+    <!-- 4. Lógica do Terminal em JavaScript -->
+    <script>
+        // --- Variáveis Globais ---
+        let canvas, ctx;
+        let rows = 25, cols = 80;
+        let cursor = { x: 0, y: 0 };
+        let cursorBlinkState = true;
+        
+        // screenData armazena o estado de cada célula: { char, fg, bg }
+        let screenData = [];
+        
+        // Configurações de cores e fontes
+        let colors = {
+            bg: "#05050a",     // Fundo escuro
+            fg: "#34d399",     // Verde esmeralda
+            cursor: "#ffffff"  // Cursor branco
+        };
+
+        // Uma fonte de bitmap 8x8 padrão embutida no código
+        // O usuário pode sobrescrever isso com um JSON
+        const defaultFont = {
+            charWidth: 8,
+            charHeight: 8,
+            data: {
+                "A": [
+                    "00011000",
+                    "00100100",
+                    "01000010",
+                    "01111110",
+                    "01000010",
+                    "01000010",
+                    "00000000",
+                    "00000000"
+                ],
+                "B": [
+                    "01111100",
+                    "01000010",
+                    "01000010",
+                    "01111100",
+                    "01000010",
+                    "01000010",
+                    "01111100",
+                    "00000000"
+                ],
+                "C": [
+                    "00111110",
+                    "01000000",
+                    "01000000",
+                    "01000000",
+                    "01000000",
+                    "01000000",
+                    "00111110",
+                    "00000000"
+                ],
+                // ... (O ideal é preencher todos os caracteres ASCII)
+                " ": [
+                    "00000000",
+                    "00000000",
+                    "00000000",
+                    "00000000",
+                    "00000000",
+                    "00000000",
+                    "00000000",
+                    "00000000"
+                ],
+                "?": [
+                    "00111100",
+                    "01000010",
+                    "01000010",
+                    "00000100",
+                    "00011000",
+                    "00000000",
+                    "00011000",
+                    "00000000"
+                ]
+            }
+        };
+        let fontSet = defaultFont; // Começa com a fonte padrão
+
+        // --- Inicialização ---
+        window.onload = () => {
+            canvas = document.getElementById('terminalCanvas');
+            ctx = canvas.getContext('2d');
+            
+            // Garante que a renderização seja em pixels nítidos
+            ctx.imageSmoothingEnabled = false;
+
+            // Referências dos controles
+            const rowsInput = document.getElementById('rowsInput');
+            const colsInput = document.getElementById('colsInput');
+            const applyBtn = document.getElementById('applySettings');
+            const fontFile = document.getElementById('fontFile');
+            const colorFile = document.getElementById('colorFile');
+
+            // Listeners
+            applyBtn.addEventListener('click', applySettings);
+            fontFile.addEventListener('change', loadFont);
+            colorFile.addEventListener('change', loadColors);
+
+            // Listener de Teclado (no canvas para focar)
+            canvas.addEventListener('keydown', handleKeyDown);
+
+            // Foco inicial no canvas para digitação
+            canvas.focus();
+            canvas.addEventListener('click', () => canvas.focus());
+            
+            // Configuração inicial
+            rows = parseInt(rowsInput.value);
+            cols = parseInt(colsInput.value);
+            initializeTerminal();
+
+            // Inicia o piscar do cursor
+            setInterval(toggleCursor, 500);
+
+            // Mensagem de boas-vindas
+            typeString("Bem-vindo ao Terminal ASCII!\n");
+            typeString("Digite algo...\n");
+            typeString("> ");
+        };
+
+        // --- Funções Principais ---
+
+        function initializeTerminal() {
+            // Define o tamanho do canvas em pixels
+            canvas.width = cols * fontSet.charWidth;
+            canvas.height = rows * fontSet.charHeight;
+
+            // Ajusta o tamanho de exibição do canvas (mantendo o aspect ratio)
+            // Isso dimensiona o canvas com `image-rendering: pixelated`
+            canvas.style.width = `${cols * fontSet.charWidth * 1.5}px`; // Ex: escala de 1.5x
+            canvas.style.height = `${rows * fontSet.charHeight * 1.5}px`;
+            
+            // (Re)inicializa o buffer da tela
+            screenData = [];
+            for (let y = 0; y < rows; y++) {
+                screenData.push(createBlankRow(cols));
+            }
+            
+            cursor = { x: 0, y: 0 };
+            drawScreen();
+        }
+
+        function createBlankRow(width) {
+            const row = [];
+            for (let x = 0; x < width; x++) {
+                row.push({ char: ' ', fg: colors.fg, bg: colors.bg });
+            }
+            return row;
+        }
+
+        /**
+         * A função principal de renderização.
+         * Desenha todo o conteúdo de `screenData` no canvas.
+         */
+        function drawScreen() {
+            if (!ctx) return;
+
+            // 1. Limpa a tela com a cor de fundo
+            ctx.fillStyle = colors.bg;
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // 2. Desenha cada caractere do buffer
+            for (let y = 0; y < rows; y++) {
+                for (let x = 0; x < cols; x++) {
+                    const cell = screenData[y][x];
+                    // Só desenha se for diferente do fundo (otimização)
+                    if (cell.char !== ' ' || cell.bg !== colors.bg || cell.fg !== colors.fg) {
+                         drawChar(cell.char, x, y, cell.fg, cell.bg);
+                    }
+                }
+            }
+
+            // 3. Desenha o cursor (se estiver no estado "ligado")
+            if (cursorBlinkState) {
+                // Pega o caractere que está *sob* o cursor
+                const cellUnderCursor = screenData[cursor.y][cursor.x];
+                
+                // Desenha o cursor como um bloco de cor invertida
+                drawChar(
+                    cellUnderCursor.char, 
+                    cursor.x, 
+                    cursor.y, 
+                    colors.bg,      // Cor de frente invertida
+                    colors.cursor   // Cor de fundo invertida (a cor do cursor)
+                );
+            }
+        }
+
+        /**
+         * Desenha um único caractere na grade do canvas.
+         */
+        function drawChar(char, gridX, gridY, fg, bg) {
+            const px = gridX * fontSet.charWidth;
+            const py = gridY * fontSet.charHeight;
+            
+            // Desenha o fundo da célula
+            ctx.fillStyle = bg;
+            ctx.fillRect(px, py, fontSet.charWidth, fontSet.charHeight);
+
+            // Encontra o bitmap do caractere na fonte
+            const charBitmap = fontSet.data[char] || fontSet.data['?'] || [];
+            
+            ctx.fillStyle = fg;
+            
+            // Desenha os pixels do caractere
+            for (let y = 0; y < fontSet.charHeight; y++) {
+                const row = charBitmap[y] || "";
+                for (let x = 0; x < fontSet.charWidth; x++) {
+                    if (row[x] === '1') {
+                        // Desenha um pixel (um retângulo de 1x1)
+                        ctx.fillRect(px + x, py + y, 1, 1);
+                    }
+                }
+            }
+        }
+
+        // --- Lógica do Terminal ---
+
+        function handleKeyDown(e) {
+            // Impede que o 'Backspace' volte a página, etc.
+            e.preventDefault();
+            
+            const key = e.key;
+            
+            if (key.length === 1) {
+                // Caractere imprimível
+                typeChar(key);
+            } else if (key === 'Enter') {
+                newLine();
+            } else if (key === 'Backspace') {
+                backspace();
+            } 
+            // TODO: Implementar 'ArrowUp', 'ArrowDown', etc.
+
+            // Reseta o piscar do cursor para que ele apareça imediatamente
+            cursorBlinkState = true;
+            drawScreen();
+        }
+
+        function typeString(str) {
+            for (const char of str) {
+                if (char === '\n') {
+                    newLine();
+                } else {
+                    typeChar(char);
+                }
+            }
+            drawScreen();
+        }
+
+        function typeChar(char) {
+            // Coloca o caractere no buffer
+            screenData[cursor.y][cursor.x] = { char, fg: colors.fg, bg: colors.bg };
+            
+            // Avança o cursor
+            cursor.x++;
+            
+            // Quebra de linha (wrap)
+            if (cursor.x >= cols) {
+                cursor.x = 0;
+                cursor.y++;
+                checkScroll();
+            }
+        }
+
+        function newLine() {
+            cursor.y++;
+            cursor.x = 0;
+            checkScroll();
+        }
+
+        function backspace() {
+            if (cursor.x > 0) {
+                cursor.x--;
+                // Apaga o caractere no buffer
+                screenData[cursor.y][cursor.x] = { char: ' ', fg: colors.fg, bg: colors.bg };
+            } else if (cursor.y > 0) {
+                // Volta para o final da linha anterior
+                cursor.y--;
+                cursor.x = cols - 1;
+            }
+        }
+
+        function checkScroll() {
+            if (cursor.y >= rows) {
+                // Rola a tela
+                screenData.shift(); // Remove a primeira linha
+                screenData.push(createBlankRow(cols)); // Adiciona uma nova linha no final
+                cursor.y = rows - 1; // Move o cursor para a última linha
+            }
+        }
+
+        function toggleCursor() {
+            cursorBlinkState = !cursorBlinkState;
+            drawScreen(); // Redesenha a tela para mostrar/esconder o cursor
+        }
+
+        // --- Funções de Configuração ---
+
+        function applySettings() {
+            rows = parseInt(document.getElementById('rowsInput').value);
+            cols = parseInt(document.getElementById('colsInput').value);
+            initializeTerminal();
+        }
+
+        function loadFont(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                try {
+                    const newFont = JSON.parse(e.target.result);
+                    if (newFont.charWidth && newFont.charHeight && newFont.data) {
+                        fontSet = newFont;
+                        console.log("Fonte personalizada carregada:", fontSet);
+                        initializeTerminal(); // Reinicia o terminal com a nova fonte
+                    } else {
+                        alert("Formato de fonte JSON inválido!");
+                    }
+                } catch (err) {
+                    alert("Erro ao ler o arquivo JSON da fonte: " + err.message);
+                }
+            };
+            reader.readAsText(file);
+        }
+
+        function loadColors(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                try {
+                    const newColors = JSON.parse(e.target.result);
+                    // Mescla as novas cores com as existentes
+                    colors = { ...colors, ...newColors };
+                    console.log("Cores personalizadas carregadas:", colors);
+                    initializeTerminal(); // Reinicia para aplicar as cores de fundo
+                } catch (err) {
+                    alert("Erro ao ler o arquivo JSON de cores: " + err.message);
+                }
+            };
+            reader.readAsText(file);
+        }
+
+    </script>
+</body>
+</html>
+
