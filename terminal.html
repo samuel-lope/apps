@@ -127,13 +127,14 @@
         let currentInputLine = "";
         let promptX = 0; 
 
+        // Cores padrão que podem ser sobrescritas pelo localStorage
         let colors = {
             bg: "#05050a",     
             fg: "#34d399",     
             cursor: "#ffffff"  
         };
 
-        // --- Fonte Padrão Expandida ---
+        // --- Fonte Padrão (será sobrescrita pelo localStorage se existir) ---
         const defaultFont = {
             charWidth: 8,
             charHeight: 8,
@@ -217,12 +218,17 @@
                 "\"": [ "00100100", "00100100", "00000000", "00000000", "00000000", "00000000", "00000000", "00000000" ],
                 "/": [ "00000010", "00000100", "00001000", "00010000", "00100000", "01000000", "01000000", "00000000" ],
                 "-": [ "00000000", "00000000", "00000000", "00000000", "01111100", "00000000", "00000000", "00000000" ],
-                
-                // --- ATUALIZADO: Novo caractere ---
                 "'": [ "00100000", "00100000", "00000000", "00000000", "00000000", "00000000", "00000000", "00000000" ]
             }
         };
         let fontSet = defaultFont; 
+
+        // --- Chaves do LocalStorage ---
+        const STORAGE_KEYS = {
+            DIMENSIONS: 'terminalDimensions',
+            COLORS: 'terminalColors',
+            FONT: 'terminalFont'
+        };
 
         // --- Inicialização ---
         window.onload = () => {
@@ -256,12 +262,52 @@
             
             hiddenInput.focus();
             
-            rows = parseInt(rowsInput.value);
-            cols = parseInt(colsInput.value);
+            // Carrega configurações salvas ou usa padrões
+            loadSettingsFromStorage();
+            
+            // Atualiza os inputs do modal para refletir os valores carregados
+            rowsInput.value = rows;
+            colsInput.value = cols;
+
             initializeTerminal();
 
             setInterval(toggleCursor, 500);
         };
+
+        // --- Funções de Armazenamento ---
+
+        function loadSettingsFromStorage() {
+            try {
+                // Carregar Dimensões
+                const storedDims = localStorage.getItem(STORAGE_KEYS.DIMENSIONS);
+                if (storedDims) {
+                    const dims = JSON.parse(storedDims);
+                    rows = dims.rows || 25;
+                    cols = dims.cols || 80;
+                }
+
+                // Carregar Cores
+                const storedColors = localStorage.getItem(STORAGE_KEYS.COLORS);
+                if (storedColors) {
+                    colors = JSON.parse(storedColors);
+                }
+
+                // Carregar Fonte
+                const storedFont = localStorage.getItem(STORAGE_KEYS.FONT);
+                if (storedFont) {
+                    fontSet = JSON.parse(storedFont);
+                } else {
+                    fontSet = defaultFont;
+                }
+
+            } catch (e) {
+                console.error("Erro ao carregar configurações do localStorage:", e);
+                fontSet = defaultFont;
+                colors = { bg: "#05050a", fg: "#34d399", cursor: "#ffffff" };
+                rows = 25;
+                cols = 80;
+            }
+        }
 
         // --- Funções Principais ---
 
@@ -278,6 +324,7 @@
             drawScreen();
             
             typeString("Bem-vindo ao Terminal ASCII!\n");
+            typeString("Configuracoes carregadas do localStorage.\n");
             typeString("Digite 'config' para abrir as configuracoes.\n");
             typeString("> ");
             promptX = cursor.x; 
@@ -294,18 +341,21 @@
         function drawScreen() {
             if (!ctx) return;
 
+            // Define a cor de fundo com base nas cores carregadas
             ctx.fillStyle = colors.bg;
             ctx.fillRect(0, 0, canvas.width, canvas.height);
 
             for (let y = 0; y < rows; y++) {
                 for (let x = 0; x < cols; x++) {
                     const cell = screenData[y][x];
+                    // Redesenha a célula se ela for diferente do "vazio" padrão
                     if (cell.char !== ' ' || cell.bg !== colors.bg || cell.fg !== colors.fg) {
                          drawChar(cell.char, x, y, cell.fg, cell.bg);
                     }
                 }
             }
 
+            // Desenha o cursor
             if (document.activeElement === hiddenInput && cursorBlinkState) {
                 const cellUnderCursor = (screenData[cursor.y] && screenData[cursor.y][cursor.x])
                     ? screenData[cursor.y][cursor.x]
@@ -315,14 +365,14 @@
                     cellUnderCursor.char, 
                     cursor.x, 
                     cursor.y, 
-                    colors.bg,      
-                    colors.cursor   
+                    colors.bg,      // Inverte fg/bg para o cursor
+                    colors.cursor   // Usa a cor do cursor
                 );
             }
         }
 
         function drawChar(char, gridX, gridY, fg, bg) {
-            if (gridX >= cols || gridY >= rows) return;
+            if (gridX >= cols || gridY >= rows || gridX < 0 || gridY < 0) return;
 
             const px = gridX * fontSet.charWidth;
             const py = gridY * fontSet.charHeight;
@@ -330,8 +380,11 @@
             ctx.fillStyle = bg;
             ctx.fillRect(px, py, fontSet.charWidth, fontSet.charHeight);
 
+            // Busca o caractere na fonte; se não encontrar, usa '?'
             const charBitmap = fontSet.data[char] || fontSet.data['?'];
             
+            if (!charBitmap) return; // Se nem '?' existir, não desenha
+
             ctx.fillStyle = fg;
             
             for (let y = 0; y < fontSet.charHeight; y++) {
@@ -358,7 +411,7 @@
 
         function handleControlKeys(e) {
             const key = e.key;
-            let dirty = false; 
+            let dirty = false; // "dirty" significa que a tela precisa ser redesenhada
 
             if (key === 'Enter') {
                 e.preventDefault();
@@ -375,7 +428,7 @@
             }
 
             if (dirty) {
-                cursorBlinkState = true; 
+                cursorBlinkState = true; // Força o cursor a aparecer
                 drawScreen();
             }
         }
@@ -398,12 +451,13 @@
             }
 
             if (cursor.y >= rows) {
-                return; 
+                return; // Evita escrever fora da tela (embora o scroll deva cuidar disso)
             }
 
             screenData[cursor.y][cursor.x] = { char, fg: colors.fg, bg: colors.bg };
             cursor.x++;
             
+            // Quebra de linha automática (wrap)
             if (cursor.x >= cols) {
                 cursor.x = 0;
                 cursor.y++;
@@ -418,6 +472,7 @@
         }
 
         function backspace() {
+            // Só permite apagar se o cursor estiver depois do prompt
             if (cursor.x > promptX) {
                 cursor.x--;
                 screenData[cursor.y][cursor.x] = { char: ' ', fg: colors.fg, bg: colors.bg };
@@ -426,10 +481,11 @@
         }
 
         function checkScroll() {
+            // Se o cursor passou da última linha
             if (cursor.y >= rows) {
-                screenData.shift(); 
-                screenData.push(createBlankRow(cols)); 
-                cursor.y = rows - 1;
+                screenData.shift(); // Remove a linha do topo
+                screenData.push(createBlankRow(cols)); // Adiciona uma linha em branco embaixo
+                cursor.y = rows - 1; // Move o cursor para a última linha
             }
         }
 
@@ -448,7 +504,7 @@
 
         function hideConfigModal() {
             configModal.classList.add('hidden');
-            hiddenInput.focus();
+            hiddenInput.focus(); // Devolve o foco ao terminal
         }
 
         function processCommand(command) {
@@ -463,6 +519,14 @@
         function applySettings() {
             rows = parseInt(rowsInput.value);
             cols = parseInt(colsInput.value);
+
+            // Salva dimensões no localStorage
+            try {
+                localStorage.setItem(STORAGE_KEYS.DIMENSIONS, JSON.stringify({ rows, cols }));
+            } catch (e) {
+                console.error("Erro ao salvar dimensões:", e);
+            }
+
             initializeTerminal(); 
             hideConfigModal(); 
         }
@@ -474,12 +538,15 @@
             const reader = new FileReader();
             reader.onload = (e) => {
                 try {
-                    const newFont = JSON.parse(e.target.result);
+                    const jsonString = e.target.result;
+                    const newFont = JSON.parse(jsonString);
+                    
                     if (newFont.charWidth && newFont.charHeight && newFont.data) {
                         fontSet = newFont;
                         console.log("Fonte personalizada carregada:", fontSet);
+                        // Salva fonte no localStorage
+                        localStorage.setItem(STORAGE_KEYS.FONT, jsonString);
                     } else {
-                        // Substituindo alert por console.error
                         console.error("Formato de fonte JSON inválido!");
                     }
                 } catch (err) {
@@ -496,9 +563,14 @@
             const reader = new FileReader();
             reader.onload = (e) => {
                 try {
-                    const newColors = JSON.parse(e.target.result);
-                    colors = { ...colors, ...newColors };
+                    const jsonString = e.target.result;
+                    const newColors = JSON.parse(jsonString);
+                    
+                    colors = { ...colors, ...newColors }; // Mescla cores novas com as existentes
+                    
                     console.log("Cores personalizadas carregadas:", colors);
+                    // Salva cores no localStorage
+                    localStorage.setItem(STORAGE_KEYS.COLORS, JSON.stringify(colors));
                 } catch (err) {
                     console.error("Erro ao ler o arquivo JSON de cores: " + err.message);
                 }
