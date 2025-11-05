@@ -7,13 +7,13 @@
     <!-- 1. Carrega o TailwindCSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
-        /* ATUALIZADO: Força o layout de tela cheia sem rolagem */
+        /* Força o layout de tela cheia sem rolagem */
         html, body {
             overflow: hidden;
-            background-color: #05050a; /* Garante que a cor de fundo seja a mesma do terminal */
+            background-color: #05050a; 
         }
 
-        /* ATUALIZADO: Canvas agora preenche a tela inteira */
+        /* Canvas agora preenche a tela inteira */
         canvas#terminalCanvas {
             image-rendering: -moz-crisp-edges;
             image-rendering: -webkit-crisp-edges;
@@ -23,8 +23,6 @@
             cursor: text;
             width: 100vw;
             height: 100vh;
-            /* Remove o brilho para um visual mais limpo de tela cheia */
-            /* box-shadow: 0 0 15px 3px rgba(52, 211, 153, 0.3); */
         }
 
         /* Input "fantasma" para teclado móvel */
@@ -41,19 +39,20 @@
 <body class="bg-gray-900 text-gray-200 font-sans">
 
     <!-- 
-      ATUALIZADO: O formulário de configuração agora é um modal 
-      que fica sobre o canvas e está escondido por padrão.
+      O container do modal agora permite rolagem vertical (overflow-y-auto)
     -->
-    <div id="configModal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-70 p-4">
-        <!-- Conteúdo do Modal -->
-        <div id="configModalContent" class="bg-gray-800 p-6 rounded-lg shadow-xl grid grid-cols-1 md:grid-cols-3 gap-4 w-full max-w-6xl relative">
+    <div id="configModal" class="hidden fixed inset-0 z-50 overflow-y-auto bg-black bg-opacity-70 p-4 py-10">
+        <!-- 
+          Conteúdo do Modal 
+        -->
+        <div id="configModalContent" class="bg-gray-800 p-6 rounded-lg shadow-xl grid grid-cols-1 md:grid-cols-3 gap-4 w-full max-w-6xl relative mx-auto">
             
             <!-- Botão Fechar -->
             <button id="closeModal" class="absolute top-2 right-3 text-gray-400 hover:text-white text-3xl font-bold">&times;</button>
             
             <h2 class="col-span-1 md:col-span-3 text-2xl font-bold text-emerald-400 mb-2">Configurações do Terminal</h2>
 
-            <!-- Configurações de Dimensão -->
+            <!-- Card 1: Dimensões -->
             <div class="flex flex-col space-y-2 p-4 bg-gray-700 rounded-md">
                 <h3 class="text-lg font-semibold text-gray-200">Dimensões</h3>
                 <div class="flex items-center space-x-2">
@@ -69,7 +68,7 @@
                 </button>
             </div>
             
-            <!-- Configurações de Arquivo -->
+            <!-- Card 2: Personalização -->
             <div class="flex flex-col space-y-4 p-4 bg-gray-700 rounded-md">
                 <h3 class="text-lg font-semibold text-gray-200">Personalização</h3>
                 <div>
@@ -82,7 +81,7 @@
                 </div>
             </div>
 
-            <!-- Informações de Formato -->
+            <!-- Card 3: Informações de Formato -->
             <div class="text-xs text-gray-400 bg-gray-900 p-4 rounded-md border border-gray-700">
                 <h3 class="text-lg font-semibold text-gray-200 mb-2">Formatos JSON</h3>
                 <p class="font-bold">Formato da Fonte:</p>
@@ -125,9 +124,8 @@
         
         let screenData = [];
         
-        // NOVO: Rastreia a entrada da linha de comando
         let currentInputLine = "";
-        let promptX = 0; // Coluna onde o prompt termina
+        let promptX = 0; 
 
         let colors = {
             bg: "#05050a",     
@@ -215,7 +213,13 @@
                 "]": [ "00111000", "00001000", "00001000", "00001000", "00001000", "00001000", "00111000", "00000000" ],
                 "{": [ "00011000", "00100000", "01100000", "00100000", "01100000", "00100000", "00011000", "00000000" ],
                 "}": [ "00110000", "00010000", "00011000", "00010000", "00011000", "00010000", "00110000", "00000000" ],
-                "<": [ "00000000", "00010000", "00100000", "01000000", "00100000", "00010000", "00000000", "00000000" ]
+                "<": [ "00000000", "00010000", "00100000", "01000000", "00100000", "00010000", "00000000", "00000000" ],
+                "\"": [ "00100100", "00100100", "00000000", "00000000", "00000000", "00000000", "00000000", "00000000" ],
+                "/": [ "00000010", "00000100", "00001000", "00010000", "00100000", "01000000", "01000000", "00000000" ],
+                "-": [ "00000000", "00000000", "00000000", "00000000", "01111100", "00000000", "00000000", "00000000" ],
+                
+                // --- ATUALIZADO: Novo caractere ---
+                "'": [ "00100000", "00100000", "00000000", "00000000", "00000000", "00000000", "00000000", "00000000" ]
             }
         };
         let fontSet = defaultFont; 
@@ -247,17 +251,11 @@
             hiddenInput.addEventListener('input', handleInput); 
             hiddenInput.addEventListener('keydown', handleControlKeys); 
             
-            // Focar o input fantasma quando o canvas for clicado ou focado
             canvas.addEventListener('click', () => hiddenInput.focus());
             canvas.addEventListener('focus', () => hiddenInput.focus());
             
-            // REMOVIDO: O resize agora é feito por CSS (vw/vh)
-            // window.addEventListener('resize', resizeCanvasDisplay);
-            
-            // Foco inicial
             hiddenInput.focus();
             
-            // ATUALIZADO: Pega os valores *iniciais* do HTML
             rows = parseInt(rowsInput.value);
             cols = parseInt(colsInput.value);
             initializeTerminal();
@@ -268,29 +266,21 @@
         // --- Funções Principais ---
 
         function initializeTerminal() {
-            // Define o tamanho *interno* do canvas (resolução nativa)
             canvas.width = cols * fontSet.charWidth;
             canvas.height = rows * fontSet.charHeight;
             
-            // (Re)inicializa o buffer da tela
             screenData = [];
             for (let y = 0; y < rows; y++) {
                 screenData.push(createBlankRow(cols));
             }
             
             cursor = { x: 0, y: 0 };
-            
-            // REMOVIDO: a função de redimensionamento de exibição
-            // resizeCanvasDisplay(); 
-            
-            // Desenha a tela inicial
             drawScreen();
             
-            // Escreve as boas-vindas e o primeiro prompt
             typeString("Bem-vindo ao Terminal ASCII!\n");
             typeString("Digite 'config' para abrir as configuracoes.\n");
             typeString("> ");
-            promptX = cursor.x; // Define a posição do primeiro prompt
+            promptX = cursor.x; 
         }
 
         function createBlankRow(width) {
@@ -316,9 +306,11 @@
                 }
             }
 
-            // Só desenha o cursor se o input (e o canvas) estiverem focados
             if (document.activeElement === hiddenInput && cursorBlinkState) {
-                const cellUnderCursor = screenData[cursor.y][cursor.x];
+                const cellUnderCursor = (screenData[cursor.y] && screenData[cursor.y][cursor.x])
+                    ? screenData[cursor.y][cursor.x]
+                    : { char: ' ', fg: colors.fg, bg: colors.bg }; 
+                
                 drawChar(
                     cellUnderCursor.char, 
                     cursor.x, 
@@ -330,6 +322,8 @@
         }
 
         function drawChar(char, gridX, gridY, fg, bg) {
+            if (gridX >= cols || gridY >= rows) return;
+
             const px = gridX * fontSet.charWidth;
             const py = gridY * fontSet.charHeight;
             
@@ -356,27 +350,27 @@
             const text = e.target.value;
             if (text) {
                 typeString(text);
-                currentInputLine += text; // Adiciona ao buffer de comando
+                currentInputLine += text; 
                 drawScreen();
             }
-            e.target.value = ''; // Limpa o input
+            e.target.value = '';
         }
 
         function handleControlKeys(e) {
             const key = e.key;
-            let dirty = false; // "dirty" significa "precisa redesenhar"
+            let dirty = false; 
 
             if (key === 'Enter') {
                 e.preventDefault();
-                processCommand(currentInputLine); // Processa o comando
-                currentInputLine = ""; // Limpa o buffer de comando
-                newLine(); // Move o cursor e rola
-                typeString("> "); // Adiciona o novo prompt
-                promptX = cursor.x; // Define a nova posição do prompt
+                processCommand(currentInputLine); 
+                currentInputLine = ""; 
+                newLine(); 
+                typeString("> "); 
+                promptX = cursor.x; 
                 dirty = true;
             } else if (key === 'Backspace') {
                 e.preventDefault();
-                backspace(); // Lógica de backspace agora verifica o promptX
+                backspace(); 
                 dirty = true;
             }
 
@@ -397,6 +391,16 @@
         }
 
         function typeChar(char) {
+            if (cursor.x >= cols) {
+                cursor.x = 0;
+                cursor.y++;
+                checkScroll();
+            }
+
+            if (cursor.y >= rows) {
+                return; 
+            }
+
             screenData[cursor.y][cursor.x] = { char, fg: colors.fg, bg: colors.bg };
             cursor.x++;
             
@@ -414,11 +418,10 @@
         }
 
         function backspace() {
-            // Só permite apagar se o cursor estiver depois do prompt
             if (cursor.x > promptX) {
                 cursor.x--;
                 screenData[cursor.y][cursor.x] = { char: ' ', fg: colors.fg, bg: colors.bg };
-                currentInputLine = currentInputLine.slice(0, -1); // Remove do buffer de comando
+                currentInputLine = currentInputLine.slice(0, -1); 
             }
         }
 
@@ -427,9 +430,6 @@
                 screenData.shift(); 
                 screenData.push(createBlankRow(cols)); 
                 cursor.y = rows - 1;
-                // ATENÇÃO: Se rolar, o promptX da linha atual pode se perder.
-                // Uma lógica mais avançada seria necessária para terminais complexos.
-                // Para este caso, a linha do prompt rola para cima e um novo prompt é criado.
             }
         }
 
@@ -438,10 +438,9 @@
             drawScreen();
         }
 
-        // --- NOVO: Funções do Modal e Comandos ---
+        // --- Funções do Modal e Comandos ---
 
         function showConfigModal() {
-            // Preenche os inputs do modal com os valores atuais
             rowsInput.value = rows;
             colsInput.value = cols;
             configModal.classList.remove('hidden');
@@ -449,34 +448,23 @@
 
         function hideConfigModal() {
             configModal.classList.add('hidden');
-            // Devolve o foco ao terminal!
             hiddenInput.focus();
         }
 
-        /**
-         * Processa a linha de comando digitada.
-         */
         function processCommand(command) {
             const cmd = command.trim().toUpperCase();
             
             if (cmd === 'CONFIG') {
                 showConfigModal();
             }
-            // Futuramente:
-            // else if (cmd === 'CLEAR') { ... }
-            // else if (cmd === 'HELP') { ... }
         }
-
-
-        // --- REMOVIDO: Função de Redimensionamento ---
-        // A função resizeCanvasDisplay() foi removida pois o CSS (vw/vh) cuida disso.
 
         // --- Funções de Configuração ---
         function applySettings() {
             rows = parseInt(rowsInput.value);
             cols = parseInt(colsInput.value);
-            initializeTerminal(); // Reinicia o terminal com novos valores
-            hideConfigModal(); // Fecha o modal
+            initializeTerminal(); 
+            hideConfigModal(); 
         }
 
         function loadFont(event) {
@@ -490,12 +478,12 @@
                     if (newFont.charWidth && newFont.charHeight && newFont.data) {
                         fontSet = newFont;
                         console.log("Fonte personalizada carregada:", fontSet);
-                        // Não reinicia aqui, espera o 'Aplicar'
                     } else {
-                        alert("Formato de fonte JSON inválido!");
+                        // Substituindo alert por console.error
+                        console.error("Formato de fonte JSON inválido!");
                     }
                 } catch (err) {
-                    alert("Erro ao ler o arquivo JSON da fonte: " + err.message);
+                    console.error("Erro ao ler o arquivo JSON da fonte: " + err.message);
                 }
             };
             reader.readAsText(file);
@@ -511,9 +499,8 @@
                     const newColors = JSON.parse(e.target.result);
                     colors = { ...colors, ...newColors };
                     console.log("Cores personalizadas carregadas:", colors);
-                    // Não reinicia aqui, espera o 'Aplicar'
                 } catch (err) {
-                    alert("Erro ao ler o arquivo JSON de cores: " + err.message);
+                    console.error("Erro ao ler o arquivo JSON de cores: " + err.message);
                 }
             };
             reader.readAsText(file);
