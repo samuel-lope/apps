@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="pt-PT">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Bit-Shift Evolution v2.4 (Modular)</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- React & ReactDOM -->
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    
+    <!-- Babel para JSX -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+    <style>
+        body {
+            background-color: #050505;
+            color: #00ff41;
+            overflow: hidden;
+            touch-action: manipulation;
+            font-family: 'Courier New', Courier, monospace;
+        }
+
+        /* Efeitos Visuais Cyberpunk */
+        .crt::before {
+            content: " ";
+            display: block;
+            position: absolute;
+            top: 0; left: 0; bottom: 0; right: 0;
+            background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%), linear-gradient(90deg, rgba(255, 0, 0, 0.06), rgba(0, 255, 0, 0.02), rgba(0, 0, 255, 0.06));
+            z-index: 2;
+            background-size: 100% 2px, 3px 100%;
+            pointer-events: none;
+        }
+
+        .scanline {
+            width: 100%;
+            height: 100px;
+            z-index: 10;
+            background: linear-gradient(0deg, rgba(0,0,0,0) 0%, rgba(0, 255, 0, 0.1) 50%, rgba(0,0,0,0) 100%);
+            opacity: 0.1;
+            position: absolute;
+            bottom: 100%;
+            animation: scanline 10s linear infinite;
+            pointer-events: none;
+        }
+
+        @keyframes scanline { 0% { bottom: 100%; } 100% { bottom: -100px; } }
+
+        .text-glow { text-shadow: 0 0 5px rgba(0, 255, 65, 0.7); }
+        .text-glow-gold { text-shadow: 0 0 5px rgba(255, 215, 0, 0.7); color: #ffd700; }
+        
+        ::-webkit-scrollbar { width: 4px; }
+        ::-webkit-scrollbar-track { background: #000; }
+        ::-webkit-scrollbar-thumb { background: #003300; }
+
+        @keyframes glitch {
+            0% { transform: translate(0) }
+            20% { transform: translate(-2px, 2px) }
+            40% { transform: translate(-2px, -2px) }
+            60% { transform: translate(2px, 2px) }
+            80% { transform: translate(2px, -2px) }
+            100% { transform: translate(0) }
+        }
+        .glitch-effect { animation: glitch 0.2s cubic-bezier(.25, .46, .45, .94) both infinite; }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+
+    <!-- 1. Carregar Dados de Configuração -->
+    <script src="game_data.js"></script>
+
+    <!-- 2. Carregar Lógica do Jogo (Babel trata JSX) -->
+    <script type="text/babel" src="game_logic.js"></script>
+</body>
+</html>
