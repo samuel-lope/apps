@@ -34,6 +34,15 @@
             font-size: 0.75rem;
             width: 60px;
         }
+
+        /* Toggle Switch para Modo Previsão */
+        .toggle-checkbox:checked {
+            right: 0;
+            border-color: #10b981;
+        }
+        .toggle-checkbox:checked + .toggle-label {
+            background-color: #10b981;
+        }
     </style>
 </head>
 <body class="bg-slate-900 text-slate-100 font-sans h-screen flex flex-col overflow-hidden">
@@ -50,17 +59,14 @@
 
                 <!-- Painel de Status -->
                 <div class="flex flex-wrap justify-center gap-2 text-sm">
-                    <!-- Geração -->
                     <div class="bg-slate-900 px-3 py-1 rounded border border-slate-600 shadow-sm flex items-center gap-2">
                         <span class="text-slate-400 uppercase text-[10px] font-semibold tracking-wider">Geração</span>
                         <span id="generation-counter" class="font-mono text-emerald-400 font-bold text-base leading-none">0</span>
                     </div>
-                    <!-- População -->
                     <div class="bg-slate-900 px-3 py-1 rounded border border-slate-600 shadow-sm flex items-center gap-2">
                         <span class="text-slate-400 uppercase text-[10px] font-semibold tracking-wider">População</span>
                         <span id="population-counter" class="font-mono text-emerald-400 font-bold text-base leading-none">0</span>
                     </div>
-                     <!-- Max Pop (Novo) -->
                      <div class="bg-slate-900 px-3 py-1 rounded border border-slate-600 shadow-sm flex items-center gap-2 border-l-2 border-l-amber-500/50">
                         <span class="text-amber-500/80 uppercase text-[10px] font-semibold tracking-wider">Máx (Janela)</span>
                         <span id="max-pop-counter" class="font-mono text-amber-400 font-bold text-base leading-none">0</span>
@@ -68,28 +74,39 @@
                 </div>
             </div>
 
-            <!-- Centro/Direita: Configuração Automática e Controles -->
+            <!-- Centro/Direita: Controles -->
             <div class="flex flex-col md:flex-row items-center gap-4 w-full xl:w-auto justify-center xl:justify-end">
                 
-                <!-- Configuração de Parada Automática (Novo) -->
+                <!-- Toggle Modo Previsão -->
+                <div class="flex items-center gap-2 bg-slate-900/50 px-3 py-1.5 rounded border border-slate-700/50" title="Mostra quem vai morrer (vermelho) e nascer (verde claro)">
+                    <label class="relative inline-flex items-center cursor-pointer">
+                        <input type="checkbox" id="prediction-toggle" class="sr-only peer">
+                        <div class="w-9 h-5 bg-slate-700 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-emerald-500 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-emerald-600"></div>
+                        <span class="ml-2 text-xs font-medium text-slate-300">Modo Previsão</span>
+                    </label>
+                </div>
+
+                <!-- Configuração Auto-Stop -->
                 <div class="bg-slate-700/30 px-3 py-1.5 rounded-lg border border-slate-600/50 flex flex-wrap items-center justify-center gap-x-4 gap-y-2 text-xs">
                     <span class="text-slate-400 font-semibold border-b border-slate-600/50 md:border-none md:mr-1">Auto-Stop:</span>
-                    
                     <div class="flex items-center gap-2">
-                        <label for="window-input" class="text-slate-300">Janela (Gerações):</label>
+                        <label for="window-input" class="text-slate-300">Janela:</label>
                         <input type="number" id="window-input" value="10" min="1" class="header-input focus:border-emerald-500 outline-none">
                     </div>
-
                     <div class="flex items-center gap-2">
-                        <label for="threshold-input" class="text-slate-300">Parar após (Estável):</label>
-                        <input type="number" id="threshold-input" value="100" min="0" class="header-input focus:border-emerald-500 outline-none" title="Defina 0 para desativar">
+                        <label for="threshold-input" class="text-slate-300">Estável:</label>
+                        <input type="number" id="threshold-input" value="100" min="0" class="header-input focus:border-emerald-500 outline-none" title="0 p/ desativar">
                     </div>
                 </div>
 
-                <!-- Botões de Controle -->
+                <!-- Botões -->
                 <div class="flex gap-2">
                     <button id="btn-toggle" class="px-4 py-1.5 bg-emerald-600 hover:bg-emerald-500 rounded font-semibold transition shadow-lg flex items-center gap-2 text-sm min-w-[100px] justify-center">
                         <span id="icon-play">▶</span> <span id="text-play">Iniciar</span>
+                    </button>
+                    <!-- Novo Botão Voltar -->
+                    <button id="btn-back" class="px-3 py-1.5 bg-slate-700 hover:bg-slate-600 rounded font-medium transition border border-slate-600 text-sm" title="Voltar 1 Geração">
+                        -1
                     </button>
                     <button id="btn-step" class="px-3 py-1.5 bg-slate-700 hover:bg-slate-600 rounded font-medium transition border border-slate-600 text-sm" title="Avançar 1 Geração">
                         +1
@@ -107,9 +124,8 @@
 
     <div class="flex-1 flex flex-col md:flex-row overflow-hidden">
         
-        <!-- Sidebar Configurações -->
+        <!-- Sidebar -->
         <aside class="w-full md:w-64 bg-slate-800 p-5 border-r border-slate-700 flex flex-col gap-6 overflow-y-auto shrink-0 z-0">
-            
             <div class="space-y-4">
                 <h2 class="font-semibold text-slate-300 border-b border-slate-600 pb-2">Inserir Formas</h2>
                 <div>
@@ -122,17 +138,15 @@
 
             <div class="space-y-4">
                 <h2 class="font-semibold text-slate-300 border-b border-slate-600 pb-2">Matriz</h2>
-                
                 <div>
                     <label class="block text-sm text-slate-400 mb-1">Tamanho do Pixel</label>
                     <select id="pixel-size" class="w-full bg-slate-900 border border-slate-600 rounded p-2 focus:border-emerald-500 focus:outline-none text-sm">
-                        <option value="5">5x5 px (Minúsculo)</option>
-                        <option value="10">10x10 px (Pequeno)</option>
-                        <option value="15">15x15 px (Médio)</option>
-                        <option value="20" selected>20x20 px (Grande)</option>
+                        <option value="5">5x5 px</option>
+                        <option value="10">10x10 px</option>
+                        <option value="15">15x15 px</option>
+                        <option value="20" selected>20x20 px</option>
                     </select>
                 </div>
-
                 <div class="grid grid-cols-2 gap-2">
                     <div>
                         <label class="block text-sm text-slate-400 mb-1">Linhas</label>
@@ -143,7 +157,6 @@
                         <input type="number" id="cols-input" value="40" min="10" max="200" class="w-full bg-slate-900 border border-slate-600 rounded p-2 focus:border-emerald-500 focus:outline-none text-sm">
                     </div>
                 </div>
-
                 <button id="btn-resize" class="w-full py-2 bg-slate-600 hover:bg-slate-500 rounded text-sm transition mt-2">
                     Aplicar Mudanças
                 </button>
@@ -158,18 +171,33 @@
                 </div>
             </div>
 
-            <!-- Status de Auto-Stop visível na barra lateral também para feedback -->
+             <!-- Legenda do Modo Previsão -->
+             <div id="prediction-legend" class="space-y-2 pt-4 border-t border-slate-700 hidden">
+                <h3 class="text-xs font-semibold text-slate-400 uppercase">Legenda Previsão</h3>
+                <div class="flex items-center gap-2 text-xs text-slate-300">
+                    <div class="w-3 h-3 bg-emerald-500 rounded-sm"></div>
+                    <span>Sobrevive</span>
+                </div>
+                <div class="flex items-center gap-2 text-xs text-slate-300">
+                    <div class="w-3 h-3 bg-rose-500/40 border border-rose-500/50 rounded-sm"></div>
+                    <span>Vai Morrer</span>
+                </div>
+                <div class="flex items-center gap-2 text-xs text-slate-300">
+                    <div class="w-3 h-3 bg-emerald-500/40 border border-emerald-500/50 rounded-sm"></div>
+                    <span>Vai Nascer</span>
+                </div>
+            </div>
+
             <div class="mt-auto pt-4 border-t border-slate-700 text-center">
-                 <p class="text-xs text-slate-500">Estabilidade Atual: <span id="stability-counter" class="text-emerald-400 font-mono">0</span>/<span id="stability-target">100</span></p>
+                 <p class="text-xs text-slate-500">Estabilidade: <span id="stability-counter" class="text-emerald-400 font-mono">0</span>/<span id="stability-target">100</span></p>
             </div>
         </aside>
 
-        <!-- Área do Canvas -->
+        <!-- Canvas Area -->
         <main class="flex-1 bg-slate-950 flex items-center justify-center relative overflow-hidden canvas-container">
             <div class="absolute inset-0 overflow-auto flex items-center justify-center p-4" id="scroll-wrapper">
                 <canvas id="game-canvas" class="bg-slate-900 shadow-2xl border border-slate-700"></canvas>
             </div>
-            
             <div class="absolute bottom-4 right-4 bg-slate-800/80 backdrop-blur px-3 py-2 rounded text-xs text-slate-300 pointer-events-none border border-slate-700 z-10">
                 Clique/Arraste para desenhar
             </div>
@@ -201,7 +229,9 @@
 
         const COLOR_BG = '#0f172a';
         const COLOR_GRID = '#1e293b';
-        const COLOR_CELL = '#10b981';
+        const COLOR_CELL = '#10b981'; // Emerald 500
+        const COLOR_DYING = 'rgba(244, 63, 94, 0.4)'; // Rose 500 Translucido
+        const COLOR_BIRTH = 'rgba(16, 185, 129, 0.4)'; // Emerald Transparente
 
         // --- DOM ELEMENTS ---
         const canvas = document.getElementById('game-canvas');
@@ -210,11 +240,14 @@
         // Buttons
         const btnToggle = document.getElementById('btn-toggle');
         const btnStep = document.getElementById('btn-step');
+        const btnBack = document.getElementById('btn-back'); // Novo
         const btnClear = document.getElementById('btn-clear');
         const btnRandom = document.getElementById('btn-random');
         const btnResize = document.getElementById('btn-resize');
         const iconPlay = document.getElementById('icon-play');
         const textPlay = document.getElementById('text-play');
+        const predictionToggle = document.getElementById('prediction-toggle');
+        const predictionLegend = document.getElementById('prediction-legend');
         
         // Inputs
         const patternSelect = document.getElementById('pattern-select');
@@ -234,6 +267,7 @@
 
         // --- GAME STATE ---
         let grid = [];
+        let gridHistory = []; // Histórico para o botão "Voltar"
         let rows = 29;
         let cols = 60;
         let cellSize = 20;
@@ -244,13 +278,14 @@
         let fps = 10;
         let isDrawing = false;
         let currentPatternKey = 'none';
+        let isPredictionMode = false;
         
         // Auto-Stop State
-        let populationHistory = []; // Armazena contagem de população
+        let populationHistory = [];
         let windowSize = 10;
         let stopThreshold = 100;
         let stabilityCount = 0;
-        let lastWindowMax = -1; // O max calculado na geração anterior
+        let lastWindowMax = -1;
 
         // --- CORE FUNCTIONS ---
 
@@ -269,23 +304,23 @@
             cellSize = parseInt(selectPixelSize.value);
             windowSize = parseInt(inputWindow.value) || 10;
             
-            // Verifica o valor do threshold, aceitando 0
             const thresholdInput = parseInt(inputThreshold.value);
             stopThreshold = isNaN(thresholdInput) ? 100 : thresholdInput;
             
             canvas.width = cols * cellSize;
             canvas.height = rows * cellSize;
             
-            // Mostra infinito se for 0
             stabilityTargetDisplay.innerText = stopThreshold === 0 ? "∞" : stopThreshold;
         }
 
         function createGrid() {
             grid = new Array(rows).fill(null).map(() => new Array(cols).fill(0));
+            gridHistory = []; // Resetar histórico ao recriar grade
         }
 
         function resetStats() {
             generation = 0;
+            gridHistory = [];
             populationHistory = [];
             stabilityCount = 0;
             lastWindowMax = -1;
@@ -307,33 +342,40 @@
 
         // --- GAME LOGIC ---
 
+        function getNeighbors(r, c) {
+            let neighbors = 0;
+            for (let i = -1; i <= 1; i++) {
+                for (let j = -1; j <= 1; j++) {
+                    if (i === 0 && j === 0) continue;
+                    const x = r + i;
+                    const y = c + j;
+                    if (x >= 0 && x < rows && y >= 0 && y < cols) {
+                        neighbors += grid[x][y];
+                    }
+                }
+            }
+            return neighbors;
+        }
+
         function computeNextGeneration() {
+            // Salvar estado atual no histórico antes de alterar
+            if (gridHistory.length > 500) gridHistory.shift(); // Limite de 500 passos
+            gridHistory.push(grid.map(row => [...row]));
+
             const nextGrid = grid.map(arr => [...arr]);
             let currentPopulation = 0;
 
             for (let r = 0; r < rows; r++) {
                 for (let c = 0; c < cols; c++) {
                     const cell = grid[r][c];
-                    let neighbors = 0;
-
-                    // Contagem otimizada de vizinhos
-                    for (let i = -1; i <= 1; i++) {
-                        for (let j = -1; j <= 1; j++) {
-                            if (i === 0 && j === 0) continue;
-                            const x = r + i;
-                            const y = c + j;
-                            if (x >= 0 && x < rows && y >= 0 && y < cols) {
-                                neighbors += grid[x][y];
-                            }
-                        }
-                    }
+                    const neighbors = getNeighbors(r, c);
 
                     if (cell === 1 && (neighbors < 2 || neighbors > 3)) {
                         nextGrid[r][c] = 0;
                     } else if (cell === 0 && neighbors === 3) {
                         nextGrid[r][c] = 1;
                     } else {
-                        nextGrid[r][c] = cell; // Mantém estado
+                        nextGrid[r][c] = cell;
                     }
                     
                     if (nextGrid[r][c] === 1) currentPopulation++;
@@ -346,32 +388,51 @@
             updateStatsUI(currentPopulation, lastWindowMax);
         }
 
+        function stepBack() {
+            if (gridHistory.length === 0) return;
+            
+            stopGame(); // Pausa ao voltar manualmente
+            
+            // Recupera o último estado
+            grid = gridHistory.pop();
+            generation--;
+            
+            // Ajustar o histórico de população para manter consistência
+            if (populationHistory.length > 0) {
+                populationHistory.pop();
+            }
+            // Recalcular população atual
+            let currentPopulation = grid.flat().reduce((a, b) => a + b, 0);
+            
+            // Recalcular Max Window simples (sem histórico completo anterior à janela é aproximado)
+            let currentWindowMax = populationHistory.length > 0 ? Math.max(...populationHistory) : 0;
+            lastWindowMax = currentWindowMax;
+            
+            // Resetar estabilidade no recuo para evitar comportamento estranho de "trava"
+            stabilityCount = 0;
+
+            updateStatsUI(currentPopulation, lastWindowMax);
+            draw();
+        }
+
         function handleAutoStopLogic(currentPop) {
-            // 1. Atualizar histórico
             populationHistory.push(currentPop);
             if (populationHistory.length > windowSize) {
-                populationHistory.shift(); // Remove o mais antigo
+                populationHistory.shift();
             }
 
-            // 2. Calcular Máximo da Janela
-            // Se o histórico ainda não encheu a janela, calculamos com o que tem
             const currentWindowMax = Math.max(...populationHistory);
 
-            // 3. Verificar Estabilidade
-            // Comparamos o "Máximo da Janela Atual" com o "Máximo da Janela Anterior"
             if (currentWindowMax === lastWindowMax) {
                 stabilityCount++;
             } else {
-                stabilityCount = 0; // Resetou se o máximo mudou
+                stabilityCount = 0;
             }
 
             lastWindowMax = currentWindowMax;
 
-            // 4. Checar Parada
-            // Se stopThreshold for 0, ignoramos a parada (modo infinito)
             if (stopThreshold > 0 && stabilityCount >= stopThreshold && isRunning) {
                 stopGame();
-                // Pequeno feedback visual no botão
                 textPlay.innerText = "Parado (Estável)";
                 setTimeout(() => { if(!isRunning) textPlay.innerText = "Iniciar"; }, 2000);
             }
@@ -381,13 +442,9 @@
             ctx.fillStyle = COLOR_BG;
             ctx.fillRect(0, 0, canvas.width, canvas.height);
             
-            // Renderização otimizada: desenha apenas células vivas
-            ctx.fillStyle = COLOR_CELL;
-            // Desenhando bordas da grade apenas se necessário (opcional para performance em grades grandes)
+            // Grid Lines
             ctx.strokeStyle = COLOR_GRID;
             ctx.lineWidth = 1;
-            
-            // Path único para a grade (melhor performance que strokeRect repetido)
             ctx.beginPath();
             for (let r = 0; r <= rows; r++) {
                 ctx.moveTo(0, r * cellSize);
@@ -399,11 +456,42 @@
             }
             ctx.stroke();
 
-            // Desenhar células
+            // Desenhar Células e Previsões
             for (let r = 0; r < rows; r++) {
                 for (let c = 0; c < cols; c++) {
-                    if (grid[r][c] === 1) {
-                        ctx.fillRect(c * cellSize + 1, r * cellSize + 1, cellSize - 2, cellSize - 2);
+                    const currentState = grid[r][c];
+                    
+                    if (isPredictionMode) {
+                        const neighbors = getNeighbors(r, c);
+                        let nextState = currentState;
+                        
+                        // Lógica de Conway apenas para previsão
+                        if (currentState === 1 && (neighbors < 2 || neighbors > 3)) nextState = 0;
+                        else if (currentState === 0 && neighbors === 3) nextState = 1;
+
+                        if (currentState === 1) {
+                            // Se está vivo hoje...
+                            if (nextState === 0) {
+                                // ...mas vai morrer (Cor de Alerta Translucida)
+                                ctx.fillStyle = COLOR_DYING;
+                                ctx.fillRect(c * cellSize + 1, r * cellSize + 1, cellSize - 2, cellSize - 2);
+                            } else {
+                                // ...e vai sobreviver (Cor Normal)
+                                ctx.fillStyle = COLOR_CELL;
+                                ctx.fillRect(c * cellSize + 1, r * cellSize + 1, cellSize - 2, cellSize - 2);
+                            }
+                        } else if (nextState === 1) {
+                            // Se está morto, mas vai nascer (Cor Translúcida)
+                            ctx.fillStyle = COLOR_BIRTH;
+                            // Um pouco menor para estilizar o "nascimento"
+                            ctx.fillRect(c * cellSize + 2, r * cellSize + 2, cellSize - 4, cellSize - 4);
+                        }
+                    } else {
+                        // Modo Normal
+                        if (currentState === 1) {
+                            ctx.fillStyle = COLOR_CELL;
+                            ctx.fillRect(c * cellSize + 1, r * cellSize + 1, cellSize - 2, cellSize - 2);
+                        }
                     }
                 }
             }
@@ -412,8 +500,12 @@
         function updateStatsUI(pop, max) {
             genCounter.innerText = generation;
             popCounter.innerText = pop;
-            maxPopCounter.innerText = max < 0 ? 0 : max; // Mostra 0 se inicial
+            maxPopCounter.innerText = max < 0 ? 0 : max;
             stabilityCounterDisplay.innerText = stabilityCount;
+            
+            // Desabilitar botão voltar se não houver histórico
+            btnBack.disabled = gridHistory.length === 0;
+            btnBack.style.opacity = gridHistory.length === 0 ? '0.5' : '1';
         }
 
         // --- CONTROL LOOP ---
@@ -468,8 +560,8 @@
                         grid[r][c] = 1;
                     }
                 }
+                // Redesenha imediatamente para mostrar a previsão
                 draw();
-                // Atualiza contagem visual imediata ao desenhar
                 let currentPop = grid.flat().reduce((a, b) => a + b, 0);
                 popCounter.innerText = currentPop;
             }
@@ -495,6 +587,12 @@
 
         btnToggle.addEventListener('click', () => isRunning ? stopGame() : startGame());
         btnStep.addEventListener('click', () => { stopGame(); computeNextGeneration(); draw(); });
+        
+        // Listener do botão voltar
+        btnBack.addEventListener('click', () => {
+            stepBack();
+        });
+
         btnClear.addEventListener('click', () => { stopGame(); createGrid(); resetStats(); draw(); });
         btnRandom.addEventListener('click', () => {
             stopGame();
@@ -510,18 +608,26 @@
         rangeSpeed.addEventListener('input', (e) => fps = parseInt(e.target.value));
         patternSelect.addEventListener('change', (e) => currentPatternKey = e.target.value);
         
-        // Listeners para inputs de Auto-Stop
         inputWindow.addEventListener('change', (e) => {
             windowSize = parseInt(e.target.value) || 10;
-            // Limpar histórico ao mudar tamanho da janela para evitar inconsistências
             populationHistory = []; 
         });
         
         inputThreshold.addEventListener('change', (e) => {
             const val = parseInt(e.target.value);
-            // Aceita 0, caso contrário usa 100
             stopThreshold = isNaN(val) ? 100 : val;
             stabilityTargetDisplay.innerText = stopThreshold === 0 ? "∞" : stopThreshold;
+        });
+
+        // Prediction Toggle Listener
+        predictionToggle.addEventListener('change', (e) => {
+            isPredictionMode = e.target.checked;
+            if (isPredictionMode) {
+                predictionLegend.classList.remove('hidden');
+            } else {
+                predictionLegend.classList.add('hidden');
+            }
+            draw();
         });
 
         // Start
