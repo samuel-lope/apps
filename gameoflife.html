@@ -1,0 +1,531 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Jogo da Vida de Conway</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .canvas-container::-webkit-scrollbar {
+            width: 12px;
+            height: 12px;
+        }
+        .canvas-container::-webkit-scrollbar-track {
+            background: #1e293b; 
+        }
+        .canvas-container::-webkit-scrollbar-thumb {
+            background-color: #475569; 
+            border-radius: 6px; 
+            border: 3px solid #1e293b;
+        }
+        
+        canvas {
+            image-rendering: pixelated;
+            cursor: crosshair;
+        }
+        
+        /* Estilo para inputs pequenos no header */
+        .header-input {
+            background-color: #0f172a;
+            border: 1px solid #475569;
+            color: #e2e8f0;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 0.75rem;
+            width: 60px;
+        }
+    </style>
+</head>
+<body class="bg-slate-900 text-slate-100 font-sans h-screen flex flex-col overflow-hidden">
+
+    <!-- Header -->
+    <header class="bg-slate-800 border-b border-slate-700 p-3 shadow-md z-10">
+        <div class="max-w-[1400px] mx-auto flex flex-col xl:flex-row justify-between items-center gap-4">
+            
+            <!-- Esquerda: Título e Indicadores -->
+            <div class="flex flex-col md:flex-row items-center gap-4 md:gap-6 w-full xl:w-auto justify-center xl:justify-start">
+                <div class="text-center md:text-left shrink-0">
+                    <h1 class="text-xl font-bold text-emerald-400 tracking-wider leading-tight">Jogo da Vida</h1>
+                </div>
+
+                <!-- Painel de Status -->
+                <div class="flex flex-wrap justify-center gap-2 text-sm">
+                    <!-- Geração -->
+                    <div class="bg-slate-900 px-3 py-1 rounded border border-slate-600 shadow-sm flex items-center gap-2">
+                        <span class="text-slate-400 uppercase text-[10px] font-semibold tracking-wider">Geração</span>
+                        <span id="generation-counter" class="font-mono text-emerald-400 font-bold text-base leading-none">0</span>
+                    </div>
+                    <!-- População -->
+                    <div class="bg-slate-900 px-3 py-1 rounded border border-slate-600 shadow-sm flex items-center gap-2">
+                        <span class="text-slate-400 uppercase text-[10px] font-semibold tracking-wider">População</span>
+                        <span id="population-counter" class="font-mono text-emerald-400 font-bold text-base leading-none">0</span>
+                    </div>
+                     <!-- Max Pop (Novo) -->
+                     <div class="bg-slate-900 px-3 py-1 rounded border border-slate-600 shadow-sm flex items-center gap-2 border-l-2 border-l-amber-500/50">
+                        <span class="text-amber-500/80 uppercase text-[10px] font-semibold tracking-wider">Máx (Janela)</span>
+                        <span id="max-pop-counter" class="font-mono text-amber-400 font-bold text-base leading-none">0</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Centro/Direita: Configuração Automática e Controles -->
+            <div class="flex flex-col md:flex-row items-center gap-4 w-full xl:w-auto justify-center xl:justify-end">
+                
+                <!-- Configuração de Parada Automática (Novo) -->
+                <div class="bg-slate-700/30 px-3 py-1.5 rounded-lg border border-slate-600/50 flex flex-wrap items-center justify-center gap-x-4 gap-y-2 text-xs">
+                    <span class="text-slate-400 font-semibold border-b border-slate-600/50 md:border-none md:mr-1">Auto-Stop:</span>
+                    
+                    <div class="flex items-center gap-2">
+                        <label for="window-input" class="text-slate-300">Janela (Gerações):</label>
+                        <input type="number" id="window-input" value="10" min="1" class="header-input focus:border-emerald-500 outline-none">
+                    </div>
+
+                    <div class="flex items-center gap-2">
+                        <label for="threshold-input" class="text-slate-300">Parar após (Estável):</label>
+                        <input type="number" id="threshold-input" value="100" min="0" class="header-input focus:border-emerald-500 outline-none" title="Defina 0 para desativar">
+                    </div>
+                </div>
+
+                <!-- Botões de Controle -->
+                <div class="flex gap-2">
+                    <button id="btn-toggle" class="px-4 py-1.5 bg-emerald-600 hover:bg-emerald-500 rounded font-semibold transition shadow-lg flex items-center gap-2 text-sm min-w-[100px] justify-center">
+                        <span id="icon-play">▶</span> <span id="text-play">Iniciar</span>
+                    </button>
+                    <button id="btn-step" class="px-3 py-1.5 bg-slate-700 hover:bg-slate-600 rounded font-medium transition border border-slate-600 text-sm" title="Avançar 1 Geração">
+                        +1
+                    </button>
+                    <button id="btn-clear" class="px-3 py-1.5 bg-rose-600 hover:bg-rose-500 rounded font-medium transition shadow-lg text-sm">
+                        Limpar
+                    </button>
+                    <button id="btn-random" class="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 rounded font-medium transition shadow-lg text-sm">
+                        Aleatório
+                    </button>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <div class="flex-1 flex flex-col md:flex-row overflow-hidden">
+        
+        <!-- Sidebar Configurações -->
+        <aside class="w-full md:w-64 bg-slate-800 p-5 border-r border-slate-700 flex flex-col gap-6 overflow-y-auto shrink-0 z-0">
+            
+            <div class="space-y-4">
+                <h2 class="font-semibold text-slate-300 border-b border-slate-600 pb-2">Inserir Formas</h2>
+                <div>
+                    <label class="block text-sm text-slate-400 mb-1">Selecione uma forma</label>
+                    <select id="pattern-select" class="w-full bg-slate-900 border border-emerald-500/50 rounded p-2 focus:border-emerald-500 focus:outline-none text-emerald-100 text-sm">
+                        <option value="none">🖊️ Pincel (Pixel Único)</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="space-y-4">
+                <h2 class="font-semibold text-slate-300 border-b border-slate-600 pb-2">Matriz</h2>
+                
+                <div>
+                    <label class="block text-sm text-slate-400 mb-1">Tamanho do Pixel</label>
+                    <select id="pixel-size" class="w-full bg-slate-900 border border-slate-600 rounded p-2 focus:border-emerald-500 focus:outline-none text-sm">
+                        <option value="5">5x5 px (Minúsculo)</option>
+                        <option value="10">10x10 px (Pequeno)</option>
+                        <option value="15">15x15 px (Médio)</option>
+                        <option value="20" selected>20x20 px (Grande)</option>
+                    </select>
+                </div>
+
+                <div class="grid grid-cols-2 gap-2">
+                    <div>
+                        <label class="block text-sm text-slate-400 mb-1">Linhas</label>
+                        <input type="number" id="rows-input" value="40" min="10" max="200" class="w-full bg-slate-900 border border-slate-600 rounded p-2 focus:border-emerald-500 focus:outline-none text-sm">
+                    </div>
+                    <div>
+                        <label class="block text-sm text-slate-400 mb-1">Colunas</label>
+                        <input type="number" id="cols-input" value="40" min="10" max="200" class="w-full bg-slate-900 border border-slate-600 rounded p-2 focus:border-emerald-500 focus:outline-none text-sm">
+                    </div>
+                </div>
+
+                <button id="btn-resize" class="w-full py-2 bg-slate-600 hover:bg-slate-500 rounded text-sm transition mt-2">
+                    Aplicar Mudanças
+                </button>
+            </div>
+
+            <div class="space-y-4">
+                <h2 class="font-semibold text-slate-300 border-b border-slate-600 pb-2">Velocidade</h2>
+                <input type="range" id="speed-range" min="1" max="60" value="10" class="w-full accent-emerald-500 h-2 bg-slate-900 rounded-lg appearance-none cursor-pointer">
+                <div class="flex justify-between text-xs text-slate-400">
+                    <span>Lento</span>
+                    <span>Rápido</span>
+                </div>
+            </div>
+
+            <!-- Status de Auto-Stop visível na barra lateral também para feedback -->
+            <div class="mt-auto pt-4 border-t border-slate-700 text-center">
+                 <p class="text-xs text-slate-500">Estabilidade Atual: <span id="stability-counter" class="text-emerald-400 font-mono">0</span>/<span id="stability-target">100</span></p>
+            </div>
+        </aside>
+
+        <!-- Área do Canvas -->
+        <main class="flex-1 bg-slate-950 flex items-center justify-center relative overflow-hidden canvas-container">
+            <div class="absolute inset-0 overflow-auto flex items-center justify-center p-4" id="scroll-wrapper">
+                <canvas id="game-canvas" class="bg-slate-900 shadow-2xl border border-slate-700"></canvas>
+            </div>
+            
+            <div class="absolute bottom-4 right-4 bg-slate-800/80 backdrop-blur px-3 py-2 rounded text-xs text-slate-300 pointer-events-none border border-slate-700 z-10">
+                Clique/Arraste para desenhar
+            </div>
+        </main>
+    </div>
+
+    <script>
+        // --- CONSTANTES ---
+        const PATTERNS = {
+            "glider": { name: "Glider", matrix: [[0, 1, 0], [0, 0, 1], [1, 1, 1]] },
+            "lwss": { name: "Light-weight spaceship", matrix: [[0, 1, 0, 0, 1], [1, 0, 0, 0, 0], [1, 0, 0, 0, 1], [1, 1, 1, 1, 0]] },
+            "mwss": { name: "Middle-weight spaceship", matrix: [[0, 1, 0, 0, 0, 1], [1, 0, 0, 0, 0, 0], [1, 0, 0, 0, 0, 1], [1, 1, 1, 1, 1, 0]] },
+            "hwss": { name: "Heavy-weight spaceship", matrix: [[0, 1, 0, 0, 0, 0, 1], [1, 0, 0, 0, 0, 0, 0], [1, 0, 0, 0, 0, 0, 1], [1, 1, 1, 1, 1, 1, 0]] },
+            "gosper_gun": { 
+                name: "Gosper Glider Gun", 
+                matrix: [
+                    [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0],
+                    [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,1,0,0,0,0,0,0,0,0,0,0,0],
+                    [0,0,0,0,0,0,0,0,0,0,0,0,1,1,0,0,0,0,0,0,1,1,0,0,0,0,0,0,0,0,0,0,0,0,1,1],
+                    [0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,1,0,0,0,0,1,1,0,0,0,0,0,0,0,0,0,0,0,0,1,1],
+                    [1,1,0,0,0,0,0,0,0,0,1,0,0,0,0,0,1,0,0,0,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+                    [1,1,0,0,0,0,0,0,0,0,1,0,0,0,1,0,1,1,0,0,0,0,1,0,1,0,0,0,0,0,0,0,0,0,0,0],
+                    [0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,1,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0],
+                    [0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+                    [0,0,0,0,0,0,0,0,0,0,0,0,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]
+                ]
+            }
+        };
+
+        const COLOR_BG = '#0f172a';
+        const COLOR_GRID = '#1e293b';
+        const COLOR_CELL = '#10b981';
+
+        // --- DOM ELEMENTS ---
+        const canvas = document.getElementById('game-canvas');
+        const ctx = canvas.getContext('2d');
+        
+        // Buttons
+        const btnToggle = document.getElementById('btn-toggle');
+        const btnStep = document.getElementById('btn-step');
+        const btnClear = document.getElementById('btn-clear');
+        const btnRandom = document.getElementById('btn-random');
+        const btnResize = document.getElementById('btn-resize');
+        const iconPlay = document.getElementById('icon-play');
+        const textPlay = document.getElementById('text-play');
+        
+        // Inputs
+        const patternSelect = document.getElementById('pattern-select');
+        const inputRows = document.getElementById('rows-input');
+        const inputCols = document.getElementById('cols-input');
+        const selectPixelSize = document.getElementById('pixel-size');
+        const rangeSpeed = document.getElementById('speed-range');
+        const inputWindow = document.getElementById('window-input');
+        const inputThreshold = document.getElementById('threshold-input');
+        
+        // Stats
+        const genCounter = document.getElementById('generation-counter');
+        const popCounter = document.getElementById('population-counter');
+        const maxPopCounter = document.getElementById('max-pop-counter');
+        const stabilityCounterDisplay = document.getElementById('stability-counter');
+        const stabilityTargetDisplay = document.getElementById('stability-target');
+
+        // --- GAME STATE ---
+        let grid = [];
+        let rows = 29;
+        let cols = 60;
+        let cellSize = 20;
+        let isRunning = false;
+        let generation = 0;
+        let animationId = null;
+        let lastFrameTime = 0;
+        let fps = 10;
+        let isDrawing = false;
+        let currentPatternKey = 'none';
+        
+        // Auto-Stop State
+        let populationHistory = []; // Armazena contagem de população
+        let windowSize = 10;
+        let stopThreshold = 100;
+        let stabilityCount = 0;
+        let lastWindowMax = -1; // O max calculado na geração anterior
+
+        // --- CORE FUNCTIONS ---
+
+        function init() {
+            populatePatternSelect();
+            updateSettings();
+            createGrid();
+            resetStats();
+            draw();
+            stopGame();
+        }
+
+        function updateSettings() {
+            rows = parseInt(inputRows.value);
+            cols = parseInt(inputCols.value);
+            cellSize = parseInt(selectPixelSize.value);
+            windowSize = parseInt(inputWindow.value) || 10;
+            
+            // Verifica o valor do threshold, aceitando 0
+            const thresholdInput = parseInt(inputThreshold.value);
+            stopThreshold = isNaN(thresholdInput) ? 100 : thresholdInput;
+            
+            canvas.width = cols * cellSize;
+            canvas.height = rows * cellSize;
+            
+            // Mostra infinito se for 0
+            stabilityTargetDisplay.innerText = stopThreshold === 0 ? "∞" : stopThreshold;
+        }
+
+        function createGrid() {
+            grid = new Array(rows).fill(null).map(() => new Array(cols).fill(0));
+        }
+
+        function resetStats() {
+            generation = 0;
+            populationHistory = [];
+            stabilityCount = 0;
+            lastWindowMax = -1;
+            updateStatsUI(0, 0);
+        }
+
+        function populatePatternSelect() {
+            if(patternSelect.options.length > 1) return;
+            const displayOrder = ['glider', 'lwss', 'mwss', 'hwss', 'gosper_gun'];
+            displayOrder.forEach(key => {
+                if (PATTERNS[key]) {
+                    const option = document.createElement('option');
+                    option.value = key;
+                    option.text = PATTERNS[key].name;
+                    patternSelect.appendChild(option);
+                }
+            });
+        }
+
+        // --- GAME LOGIC ---
+
+        function computeNextGeneration() {
+            const nextGrid = grid.map(arr => [...arr]);
+            let currentPopulation = 0;
+
+            for (let r = 0; r < rows; r++) {
+                for (let c = 0; c < cols; c++) {
+                    const cell = grid[r][c];
+                    let neighbors = 0;
+
+                    // Contagem otimizada de vizinhos
+                    for (let i = -1; i <= 1; i++) {
+                        for (let j = -1; j <= 1; j++) {
+                            if (i === 0 && j === 0) continue;
+                            const x = r + i;
+                            const y = c + j;
+                            if (x >= 0 && x < rows && y >= 0 && y < cols) {
+                                neighbors += grid[x][y];
+                            }
+                        }
+                    }
+
+                    if (cell === 1 && (neighbors < 2 || neighbors > 3)) {
+                        nextGrid[r][c] = 0;
+                    } else if (cell === 0 && neighbors === 3) {
+                        nextGrid[r][c] = 1;
+                    } else {
+                        nextGrid[r][c] = cell; // Mantém estado
+                    }
+                    
+                    if (nextGrid[r][c] === 1) currentPopulation++;
+                }
+            }
+
+            grid = nextGrid;
+            generation++;
+            handleAutoStopLogic(currentPopulation);
+            updateStatsUI(currentPopulation, lastWindowMax);
+        }
+
+        function handleAutoStopLogic(currentPop) {
+            // 1. Atualizar histórico
+            populationHistory.push(currentPop);
+            if (populationHistory.length > windowSize) {
+                populationHistory.shift(); // Remove o mais antigo
+            }
+
+            // 2. Calcular Máximo da Janela
+            // Se o histórico ainda não encheu a janela, calculamos com o que tem
+            const currentWindowMax = Math.max(...populationHistory);
+
+            // 3. Verificar Estabilidade
+            // Comparamos o "Máximo da Janela Atual" com o "Máximo da Janela Anterior"
+            if (currentWindowMax === lastWindowMax) {
+                stabilityCount++;
+            } else {
+                stabilityCount = 0; // Resetou se o máximo mudou
+            }
+
+            lastWindowMax = currentWindowMax;
+
+            // 4. Checar Parada
+            // Se stopThreshold for 0, ignoramos a parada (modo infinito)
+            if (stopThreshold > 0 && stabilityCount >= stopThreshold && isRunning) {
+                stopGame();
+                // Pequeno feedback visual no botão
+                textPlay.innerText = "Parado (Estável)";
+                setTimeout(() => { if(!isRunning) textPlay.innerText = "Iniciar"; }, 2000);
+            }
+        }
+
+        function draw() {
+            ctx.fillStyle = COLOR_BG;
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            // Renderização otimizada: desenha apenas células vivas
+            ctx.fillStyle = COLOR_CELL;
+            // Desenhando bordas da grade apenas se necessário (opcional para performance em grades grandes)
+            ctx.strokeStyle = COLOR_GRID;
+            ctx.lineWidth = 1;
+            
+            // Path único para a grade (melhor performance que strokeRect repetido)
+            ctx.beginPath();
+            for (let r = 0; r <= rows; r++) {
+                ctx.moveTo(0, r * cellSize);
+                ctx.lineTo(cols * cellSize, r * cellSize);
+            }
+            for (let c = 0; c <= cols; c++) {
+                ctx.moveTo(c * cellSize, 0);
+                ctx.lineTo(c * cellSize, rows * cellSize);
+            }
+            ctx.stroke();
+
+            // Desenhar células
+            for (let r = 0; r < rows; r++) {
+                for (let c = 0; c < cols; c++) {
+                    if (grid[r][c] === 1) {
+                        ctx.fillRect(c * cellSize + 1, r * cellSize + 1, cellSize - 2, cellSize - 2);
+                    }
+                }
+            }
+        }
+
+        function updateStatsUI(pop, max) {
+            genCounter.innerText = generation;
+            popCounter.innerText = pop;
+            maxPopCounter.innerText = max < 0 ? 0 : max; // Mostra 0 se inicial
+            stabilityCounterDisplay.innerText = stabilityCount;
+        }
+
+        // --- CONTROL LOOP ---
+
+        function gameLoop(timestamp) {
+            if (!isRunning) return;
+            const interval = 1000 / fps;
+            if (timestamp - lastFrameTime > interval) {
+                computeNextGeneration();
+                draw();
+                lastFrameTime = timestamp;
+            }
+            animationId = requestAnimationFrame(gameLoop);
+        }
+
+        function startGame() {
+            if (isRunning) return;
+            isRunning = true;
+            btnToggle.classList.replace('bg-emerald-600', 'bg-amber-600');
+            btnToggle.classList.replace('hover:bg-emerald-500', 'hover:bg-amber-500');
+            iconPlay.innerText = '⏸';
+            textPlay.innerText = 'Pausar';
+            lastFrameTime = performance.now();
+            gameLoop(lastFrameTime);
+        }
+
+        function stopGame() {
+            isRunning = false;
+            cancelAnimationFrame(animationId);
+            btnToggle.classList.replace('bg-amber-600', 'bg-emerald-600');
+            btnToggle.classList.replace('hover:bg-amber-500', 'hover:bg-emerald-500');
+            iconPlay.innerText = '▶';
+            textPlay.innerText = 'Iniciar';
+        }
+
+        // --- INPUT HANDLERS ---
+
+        function handleInput(event) {
+            const rect = canvas.getBoundingClientRect();
+            const x = event.clientX - rect.left;
+            const y = event.clientY - rect.top;
+            const c = Math.floor(x / cellSize);
+            const r = Math.floor(y / cellSize);
+
+            if (r >= 0 && r < rows && c >= 0 && c < cols) {
+                if (currentPatternKey !== 'none' && event.type === 'mousedown') {
+                    placePattern(r, c, PATTERNS[currentPatternKey].matrix);
+                } else if (currentPatternKey === 'none') {
+                    if (event.type === 'mousedown') {
+                        grid[r][c] = grid[r][c] ? 0 : 1;
+                    } else if (event.type === 'mousemove' && isDrawing) {
+                        grid[r][c] = 1;
+                    }
+                }
+                draw();
+                // Atualiza contagem visual imediata ao desenhar
+                let currentPop = grid.flat().reduce((a, b) => a + b, 0);
+                popCounter.innerText = currentPop;
+            }
+        }
+
+        function placePattern(startRow, startCol, matrix) {
+            for(let i = 0; i < matrix.length; i++) {
+                for(let j = 0; j < matrix[0].length; j++) {
+                    const r = startRow + i;
+                    const c = startCol + j;
+                    if (r < rows && c < cols && matrix[i][j] === 1) {
+                        grid[r][c] = 1;
+                    }
+                }
+            }
+        }
+
+        // --- EVENT LISTENERS ---
+
+        canvas.addEventListener('mousedown', (e) => { isDrawing = true; handleInput(e); });
+        window.addEventListener('mouseup', () => isDrawing = false);
+        canvas.addEventListener('mousemove', (e) => { if (isDrawing && currentPatternKey === 'none') handleInput(e); });
+
+        btnToggle.addEventListener('click', () => isRunning ? stopGame() : startGame());
+        btnStep.addEventListener('click', () => { stopGame(); computeNextGeneration(); draw(); });
+        btnClear.addEventListener('click', () => { stopGame(); createGrid(); resetStats(); draw(); });
+        btnRandom.addEventListener('click', () => {
+            stopGame();
+            for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++) grid[r][c] = Math.random() > 0.7 ? 1 : 0;
+            resetStats();
+            let pop = grid.flat().reduce((a,b)=>a+b,0);
+            updateStatsUI(pop, 0);
+            draw();
+        });
+
+        btnResize.addEventListener('click', () => { if(confirm("Reiniciar a grade?")) init(); });
+        
+        rangeSpeed.addEventListener('input', (e) => fps = parseInt(e.target.value));
+        patternSelect.addEventListener('change', (e) => currentPatternKey = e.target.value);
+        
+        // Listeners para inputs de Auto-Stop
+        inputWindow.addEventListener('change', (e) => {
+            windowSize = parseInt(e.target.value) || 10;
+            // Limpar histórico ao mudar tamanho da janela para evitar inconsistências
+            populationHistory = []; 
+        });
+        
+        inputThreshold.addEventListener('change', (e) => {
+            const val = parseInt(e.target.value);
+            // Aceita 0, caso contrário usa 100
+            stopThreshold = isNaN(val) ? 100 : val;
+            stabilityTargetDisplay.innerText = stopThreshold === 0 ? "∞" : stopThreshold;
+        });
+
+        // Start
+        init();
+    </script>
+</body>
+</html>
