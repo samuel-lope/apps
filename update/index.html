@@ -1,0 +1,350 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sincronizador de Arquivos - Local vs Nuvem</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        /* Animações simples para feedback visual */
+        @keyframes spin { 100% { transform: rotate(360deg); } }
+        .fa-spinner { animation: spin 1s linear infinite; }
+        
+        .status-ok { color: #10b981; }
+        .status-err { color: #ef4444; }
+        .status-wait { color: #f59e0b; }
+
+        /* Scrollbar customizada */
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: #1f2937; }
+        ::-webkit-scrollbar-thumb { background: #4b5563; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #6b7280; }
+    </style>
+</head>
+<body class="bg-gray-900 text-gray-100 font-sans min-h-screen p-6">
+
+    <div class="max-w-7xl mx-auto">
+        <!-- Header -->
+        <header class="mb-8 border-b border-gray-700 pb-4">
+            <h1 class="text-3xl font-bold text-blue-400 mb-2">
+                <i class="fa-solid fa-cloud-arrow-down mr-2"></i> Atualizador Local via R2
+            </h1>
+            <p class="text-gray-400">
+                Selecione uma pasta local para comparar e atualizar arquivos a partir de: 
+                <code class="bg-gray-800 px-2 py-1 rounded text-yellow-500 text-sm">https://extensions.io.log.br/renovaweb/...</code>
+            </p>
+        </header>
+
+        <!-- Controles -->
+        <div class="bg-gray-800 p-6 rounded-lg shadow-lg mb-6 border border-gray-700">
+            <div class="flex flex-col md:flex-row gap-4 items-center justify-between">
+                
+                <div class="flex-1 w-full">
+                    <button id="btnSelectDir" class="w-full md:w-auto bg-blue-600 hover:bg-blue-500 text-white font-semibold py-3 px-6 rounded-lg transition-colors flex items-center justify-center gap-2">
+                        <i class="fa-solid fa-folder-open"></i> Selecionar Diretório Local
+                    </button>
+                    <p id="selectedPathDisplay" class="mt-2 text-sm text-gray-400 italic">Nenhum diretório selecionado</p>
+                </div>
+
+                <div class="flex gap-3">
+                    <button id="btnCheckAll" disabled class="disabled:opacity-50 disabled:cursor-not-allowed bg-gray-700 hover:bg-gray-600 text-white py-2 px-4 rounded border border-gray-600">
+                        <i class="fa-solid fa-magnifying-glass"></i> Verificar Todos
+                    </button>
+                    <button id="btnUpdateAll" disabled class="disabled:opacity-50 disabled:cursor-not-allowed bg-green-700 hover:bg-green-600 text-white py-2 px-4 rounded border border-green-600 shadow-lg shadow-green-900/50">
+                        <i class="fa-solid fa-download"></i> Atualizar Disponíveis
+                    </button>
+                </div>
+            </div>
+            
+            <!-- Aviso de CORS -->
+            <div class="mt-4 p-3 bg-blue-900/30 border border-blue-800 rounded text-xs text-blue-200 flex items-start gap-2">
+                <i class="fa-solid fa-info-circle mt-1"></i>
+                <div>
+                    <strong>Nota Técnica:</strong> O domínio de origem (extensions.io.log.br) deve permitir CORS (Cross-Origin Resource Sharing). 
+                    Se os arquivos aparecerem como "Erro", verifique o Console (F12) para erros de acesso bloqueado.
+                </div>
+            </div>
+        </div>
+
+        <!-- Tabela de Arquivos -->
+        <div class="bg-gray-800 rounded-lg shadow-lg overflow-hidden border border-gray-700">
+            <div class="overflow-x-auto">
+                <table class="w-full text-left border-collapse">
+                    <thead>
+                        <tr class="bg-gray-900 text-gray-400 text-sm uppercase tracking-wider">
+                            <th class="p-4 border-b border-gray-700">Arquivo Local</th>
+                            <th class="p-4 border-b border-gray-700">URL Remota Gerada</th>
+                            <th class="p-4 border-b border-gray-700 w-32 text-center">Status Nuvem</th>
+                            <th class="p-4 border-b border-gray-700 w-40 text-center">Ação</th>
+                        </tr>
+                    </thead>
+                    <tbody id="fileListBody" class="divide-y divide-gray-700 text-sm">
+                        <tr>
+                            <td colspan="4" class="p-8 text-center text-gray-500">
+                                Selecione um diretório para iniciar o escaneamento.
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+            
+            <!-- Footer da Tabela -->
+            <div class="p-4 bg-gray-900 border-t border-gray-700 text-xs text-gray-500 flex justify-between">
+                <span id="fileCount">0 arquivos encontrados</span>
+                <span id="logStatus">Aguardando...</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script>
+        // --- Configurações ---
+        const BASE_URL = "https://extensions.io.log.br/renovaweb/";
+        
+        // --- Estado Global ---
+        let rootDirectoryHandle = null;
+        let filesData = []; // Array de objetos { path, handle, remoteUrl, status, blob }
+
+        // --- Elementos DOM ---
+        const btnSelectDir = document.getElementById('btnSelectDir');
+        const btnCheckAll = document.getElementById('btnCheckAll');
+        const btnUpdateAll = document.getElementById('btnUpdateAll');
+        const fileListBody = document.getElementById('fileListBody');
+        const selectedPathDisplay = document.getElementById('selectedPathDisplay');
+        const fileCountSpan = document.getElementById('fileCount');
+        const logStatusSpan = document.getElementById('logStatus');
+
+        // --- Event Listeners ---
+        btnSelectDir.addEventListener('click', handleDirectorySelection);
+        btnCheckAll.addEventListener('click', checkAllRemoteFiles);
+        btnUpdateAll.addEventListener('click', updateAllAvailable);
+
+        // --- Lógica Principal ---
+
+        async function handleDirectorySelection() {
+            try {
+                // Solicita acesso à pasta
+                rootDirectoryHandle = await window.showDirectoryPicker();
+                selectedPathDisplay.textContent = `Pasta Raiz: /${rootDirectoryHandle.name}`;
+                selectedPathDisplay.classList.add('text-green-400');
+                selectedPathDisplay.classList.remove('text-gray-400');
+
+                log("Escaneando arquivos locais...");
+                
+                // Limpa estado anterior
+                filesData = [];
+                renderTableLoading();
+
+                // Escaneia recursivamente
+                await scanDirectoryRecursive(rootDirectoryHandle, rootDirectoryHandle.name); // Começa com o nome da pasta raiz
+
+                renderTable();
+                
+                // Habilita botões
+                btnCheckAll.disabled = false;
+                btnUpdateAll.disabled = true; // Só habilita após checar
+                
+                log(`Escaneamento concluído. ${filesData.length} arquivos locais.`);
+                fileCountSpan.textContent = `${filesData.length} arquivos locais listados`;
+
+            } catch (err) {
+                if (err.name !== 'AbortError') {
+                    console.error(err);
+                    alert("Erro ao acessar diretório: " + err.message);
+                }
+            }
+        }
+
+        // Função recursiva para varrer diretórios
+        async function scanDirectoryRecursive(dirHandle, currentPath) {
+            for await (const entry of dirHandle.values()) {
+                if (entry.kind === 'file') {
+                    // Monta o caminho relativo. Ex: "PastaRaiz/css/style.css"
+                    const fullPath = `${currentPath}/${entry.name}`;
+                    
+                    // Monta a URL Remota
+                    // A URL será BASE + Caminho completo (incluindo nome da pasta raiz conforme pedido)
+                    const remoteUrl = `${BASE_URL}${fullPath}`;
+
+                    filesData.push({
+                        id: crypto.randomUUID(),
+                        localPath: fullPath,
+                        handle: entry,
+                        remoteUrl: remoteUrl,
+                        status: 'pending', // pending, checking, ready, error, updated
+                        remoteBlob: null,
+                        httpStatus: null
+                    });
+
+                } else if (entry.kind === 'directory') {
+                    // Recurso: desce no diretório
+                    await scanDirectoryRecursive(entry, `${currentPath}/${entry.name}`);
+                }
+            }
+        }
+
+        // Verifica status de todos os arquivos na nuvem
+        async function checkAllRemoteFiles() {
+            btnCheckAll.disabled = true;
+            btnUpdateAll.disabled = true;
+            log("Verificando arquivos na nuvem...");
+
+            // Processa em "chunks" para não travar a UI se houver muitos arquivos
+            const promises = filesData.map(file => checkSingleFile(file));
+            await Promise.all(promises);
+
+            renderTable();
+            
+            // Habilita o botão de atualizar se houver algo pronto para baixar
+            const hasUpdates = filesData.some(f => f.status === 'ready');
+            if (hasUpdates) {
+                btnUpdateAll.disabled = false;
+                log("Verificação concluída. Arquivos prontos para atualização.");
+            } else {
+                log("Verificação concluída. Nenhum arquivo disponível para atualização.");
+            }
+            btnCheckAll.disabled = false;
+        }
+
+        // Verifica um único arquivo (Fetch)
+        async function checkSingleFile(fileObj) {
+            fileObj.status = 'checking';
+            updateRowStatus(fileObj); // Atualiza UI individualmente
+
+            try {
+                // Tenta baixar o arquivo
+                const response = await fetch(fileObj.remoteUrl, { 
+                    method: 'GET',
+                    cache: 'no-cache'
+                });
+
+                fileObj.httpStatus = response.status;
+
+                if (response.ok) {
+                    fileObj.remoteBlob = await response.blob();
+                    fileObj.status = 'ready'; // Pronto para escrever no disco
+                } else {
+                    fileObj.status = 'error';
+                    fileObj.remoteBlob = null;
+                }
+
+            } catch (error) {
+                console.warn(`Erro ao buscar ${fileObj.remoteUrl}:`, error);
+                fileObj.status = 'error';
+                fileObj.httpStatus = 'NET'; // Erro de rede/CORS
+            }
+            updateRowStatus(fileObj);
+        }
+
+        // Atualiza todos os arquivos marcados como 'ready'
+        async function updateAllAvailable() {
+            const toUpdate = filesData.filter(f => f.status === 'ready');
+            
+            if (toUpdate.length === 0) return;
+            
+            if(!confirm(`Deseja substituir ${toUpdate.length} arquivos locais pelas versões da nuvem? Essa ação é irreversível.`)) {
+                return;
+            }
+
+            log(`Escrevendo ${toUpdate.length} arquivos...`);
+            
+            for (const file of toUpdate) {
+                await writeToFile(file);
+            }
+            
+            log("Atualização em massa finalizada!");
+            alert("Processo finalizado com sucesso!");
+        }
+
+        // Escreve o Blob no sistema de arquivos local
+        async function writeToFile(fileObj) {
+            try {
+                // Cria um stream de escrita
+                const writable = await fileObj.handle.createWritable();
+                await writable.write(fileObj.remoteBlob);
+                await writable.close();
+
+                fileObj.status = 'updated';
+                updateRowStatus(fileObj);
+            } catch (error) {
+                console.error("Erro ao escrever arquivo:", error);
+                fileObj.status = 'write-error';
+                updateRowStatus(fileObj);
+                alert(`Erro ao salvar ${fileObj.localPath}. Verifique se o arquivo está aberto em outro programa.`);
+            }
+        }
+
+        // --- Funções de Renderização ---
+
+        function log(msg) {
+            logStatusSpan.innerText = msg;
+        }
+
+        function renderTableLoading() {
+            fileListBody.innerHTML = `<tr><td colspan="4" class="p-8 text-center text-blue-400"><i class="fas fa-spinner fa-2x"></i><br>Mapeando arquivos...</td></tr>`;
+        }
+
+        function renderTable() {
+            fileListBody.innerHTML = '';
+            if (filesData.length === 0) {
+                fileListBody.innerHTML = `<tr><td colspan="4" class="p-8 text-center text-gray-500">Nenhum arquivo encontrado nesta pasta.</td></tr>`;
+                return;
+            }
+
+            filesData.forEach(file => {
+                const tr = document.createElement('tr');
+                tr.id = `row-${file.id}`;
+                tr.className = "hover:bg-gray-800/50 transition-colors border-b border-gray-700/50";
+                tr.innerHTML = getRowHTML(file);
+                fileListBody.appendChild(tr);
+            });
+        }
+
+        // Atualiza apenas uma linha para evitar re-renderizar tudo
+        function updateRowStatus(file) {
+            const row = document.getElementById(`row-${file.id}`);
+            if (row) {
+                row.innerHTML = getRowHTML(file);
+            }
+        }
+
+        function getRowHTML(file) {
+            // Define ícones e cores baseado no status
+            let statusIcon = '<span class="text-gray-500">-</span>';
+            let actionBtn = '<button disabled class="text-gray-600 cursor-not-allowed"><i class="fa-solid fa-ban"></i></button>';
+
+            if (file.status === 'checking') {
+                statusIcon = '<i class="fas fa-spinner text-blue-400"></i>';
+            } else if (file.status === 'ready') {
+                statusIcon = `<span class="status-ok font-bold">200 OK</span> <span class="text-xs text-gray-400">(${(file.remoteBlob.size/1024).toFixed(1)} KB)</span>`;
+                actionBtn = `<button onclick="triggerSingleUpdate('${file.id}')" class="bg-blue-600 hover:bg-blue-500 text-white px-3 py-1 rounded text-xs transition-colors shadow shadow-blue-500/20">Substituir</button>`;
+            } else if (file.status === 'error') {
+                const code = file.httpStatus || 'ERR';
+                statusIcon = `<span class="status-err font-bold">${code}</span>`;
+            } else if (file.status === 'updated') {
+                statusIcon = '<span class="text-green-400 font-bold"><i class="fa-solid fa-check"></i> Atualizado</span>';
+                actionBtn = '<span class="text-green-500 text-xs">Concluído</span>';
+            } else if (file.status === 'write-error') {
+                statusIcon = '<span class="text-red-500 font-bold">Erro Disco</span>';
+            }
+
+            return `
+                <td class="p-4 font-mono text-gray-300 break-all">${file.localPath}</td>
+                <td class="p-4 text-xs text-gray-500 break-all select-all hover:text-gray-300 cursor-pointer" title="${file.remoteUrl}">${file.remoteUrl}</td>
+                <td class="p-4 text-center">${statusIcon}</td>
+                <td class="p-4 text-center">${actionBtn}</td>
+            `;
+        }
+
+        // Função global para o botão da linha
+        window.triggerSingleUpdate = async (id) => {
+            const file = filesData.find(f => f.id === id);
+            if (file && confirm(`Substituir apenas: ${file.localPath}?`)) {
+                await writeToFile(file);
+            }
+        };
+
+    </script>
+</body>
+</html>
