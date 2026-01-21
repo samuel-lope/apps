@@ -6,6 +6,11 @@
     <title>Sincronizador Inteligente - Comparação por Data</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <!-- Biblioteca para criar ZIPs -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <!-- Biblioteca FileSaver para garantir compatibilidade de download -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
+
     <style>
         @keyframes spin { 100% { transform: rotate(360deg); } }
         .fa-spinner { animation: spin 1s linear infinite; }
@@ -40,19 +45,31 @@
         <div class="bg-gray-800 p-6 rounded-lg shadow-lg mb-6 border border-gray-700">
             <div class="flex flex-col md:flex-row gap-4 items-center justify-between">
                 
-                <div class="flex-1 w-full">
+                <div class="flex-1 w-full space-y-2">
+                    <!-- Botão Padrão -->
                     <button id="btnSelectDir" class="w-full md:w-auto bg-blue-600 hover:bg-blue-500 text-white font-semibold py-3 px-6 rounded-lg transition-colors flex items-center justify-center gap-2">
                         <i class="fa-solid fa-folder-open"></i> Selecionar Pasta Local
                     </button>
-                    <p id="selectedPathDisplay" class="mt-2 text-sm text-gray-400 italic">Nenhum diretório selecionado</p>
+                    
+                    <!-- Botão de Restaurar (Oculto por padrão) -->
+                    <button id="btnRestoreDir" class="hidden w-full md:w-auto bg-purple-600 hover:bg-purple-500 text-white font-semibold py-3 px-6 rounded-lg transition-colors items-center justify-center gap-2">
+                        <i class="fa-solid fa-folder-tree"></i> Restaurar Acesso à Pasta Anterior
+                    </button>
+
+                    <p id="selectedPathDisplay" class="text-sm text-gray-400 italic">Nenhum diretório selecionado</p>
                 </div>
 
-                <div class="flex gap-3">
+                <div class="flex flex-wrap gap-3 justify-end">
                     <button id="btnCheckAll" disabled class="disabled:opacity-50 disabled:cursor-not-allowed bg-gray-700 hover:bg-gray-600 text-white py-2 px-4 rounded border border-gray-600">
                         <i class="fa-solid fa-magnifying-glass"></i> Comparar Datas
                     </button>
+                    
                     <button id="btnUpdateAll" disabled class="disabled:opacity-50 disabled:cursor-not-allowed bg-yellow-600 hover:bg-yellow-500 text-white py-2 px-4 rounded border border-yellow-600 shadow-lg shadow-yellow-900/50 font-bold">
                         <i class="fa-solid fa-download"></i> Atualizar Desatualizados
+                    </button>
+
+                    <button id="btnDownloadZip" disabled class="disabled:opacity-50 disabled:cursor-not-allowed bg-green-700 hover:bg-green-600 text-white py-2 px-4 rounded border border-green-600 shadow-lg shadow-green-900/50">
+                        <i class="fa-solid fa-file-zipper"></i> Baixar ZIP
                     </button>
                 </div>
             </div>
@@ -98,8 +115,10 @@
 
         // DOM Elements
         const btnSelectDir = document.getElementById('btnSelectDir');
+        const btnRestoreDir = document.getElementById('btnRestoreDir');
         const btnCheckAll = document.getElementById('btnCheckAll');
         const btnUpdateAll = document.getElementById('btnUpdateAll');
+        const btnDownloadZip = document.getElementById('btnDownloadZip');
         const fileListBody = document.getElementById('fileListBody');
         const selectedPathDisplay = document.getElementById('selectedPathDisplay');
         const fileCountSpan = document.getElementById('fileCount');
@@ -107,32 +126,69 @@
 
         // Events
         btnSelectDir.addEventListener('click', handleDirectorySelection);
+        btnRestoreDir.addEventListener('click', restoreDirectoryAccess);
         btnCheckAll.addEventListener('click', checkAllRemoteFiles);
         btnUpdateAll.addEventListener('click', updateOutdatedFiles);
+        btnDownloadZip.addEventListener('click', downloadAllAsZip);
+
+        // --- IndexedDB Logic (Para salvar o Handle) ---
+        const DB_NAME = 'R2SyncDB';
+        const STORE_NAME = 'handles';
+
+        function openDB() {
+            return new Promise((resolve, reject) => {
+                const request = indexedDB.open(DB_NAME, 1);
+                request.onupgradeneeded = (e) => {
+                    const db = e.target.result;
+                    if (!db.objectStoreNames.contains(STORE_NAME)) {
+                        db.createObjectStore(STORE_NAME);
+                    }
+                };
+                request.onsuccess = (e) => resolve(e.target.result);
+                request.onerror = (e) => reject(e.target.error);
+            });
+        }
+
+        async function saveHandle(handle) {
+            const db = await openDB();
+            const tx = db.transaction(STORE_NAME, 'readwrite');
+            // Salvamos com a chave 'root' pois só precisamos de uma pasta ativa por vez
+            tx.objectStore(STORE_NAME).put(handle, 'root'); 
+        }
+
+        async function getSavedHandle() {
+            const db = await openDB();
+            return new Promise((resolve, reject) => {
+                const tx = db.transaction(STORE_NAME, 'readonly');
+                const request = tx.objectStore(STORE_NAME).get('root');
+                request.onsuccess = () => resolve(request.result);
+                request.onerror = () => reject(request.error);
+            });
+        }
+
+        // Verifica ao carregar se há algo salvo
+        window.addEventListener('load', async () => {
+            try {
+                const saved = await getSavedHandle();
+                if (saved) {
+                    // Mostra botão de restaurar
+                    btnSelectDir.classList.add('hidden');
+                    btnRestoreDir.classList.remove('hidden');
+                    selectedPathDisplay.textContent = `Pasta Salva: /${saved.name} (Requer confirmação)`;
+                    rootDirectoryHandle = saved;
+                }
+            } catch (e) {
+                console.error("Erro ao ler DB", e);
+            }
+        });
 
         // --- Core Functions ---
 
         async function handleDirectorySelection() {
             try {
                 rootDirectoryHandle = await window.showDirectoryPicker();
-                selectedPathDisplay.textContent = `Pasta Raiz: /${rootDirectoryHandle.name}`;
-                selectedPathDisplay.classList.add('text-green-400');
-                selectedPathDisplay.classList.remove('text-gray-400');
-
-                log("Mapeando arquivos locais...");
-                filesData = [];
-                renderTableLoading();
-
-                await scanDirectoryRecursive(rootDirectoryHandle, rootDirectoryHandle.name);
-
-                renderTable();
-                
-                btnCheckAll.disabled = false;
-                btnUpdateAll.disabled = true;
-                
-                log(`Mapeamento concluído. ${filesData.length} arquivos encontrados.`);
-                fileCountSpan.textContent = `${filesData.length} arquivos locais`;
-
+                await saveHandle(rootDirectoryHandle); // Salva no DB
+                await initializeDirectoryView();
             } catch (err) {
                 if (err.name !== 'AbortError') {
                     console.error(err);
@@ -141,10 +197,50 @@
             }
         }
 
+        async function restoreDirectoryAccess() {
+            if (!rootDirectoryHandle) return;
+            
+            // Navegadores exigem verificação de permissão ao restaurar handles
+            const options = { mode: 'readwrite' };
+            if ((await rootDirectoryHandle.queryPermission(options)) !== 'granted') {
+                if ((await rootDirectoryHandle.requestPermission(options)) !== 'granted') {
+                    alert('Permissão necessária para acessar a pasta salva.');
+                    return;
+                }
+            }
+            
+            await initializeDirectoryView();
+        }
+
+        async function initializeDirectoryView() {
+            // Ajusta botões
+            btnSelectDir.classList.remove('hidden');
+            btnRestoreDir.classList.add('hidden');
+            
+            selectedPathDisplay.textContent = `Pasta Raiz: /${rootDirectoryHandle.name}`;
+            selectedPathDisplay.classList.add('text-green-400');
+            selectedPathDisplay.classList.remove('text-gray-400');
+
+            log("Mapeando arquivos locais...");
+            filesData = [];
+            renderTableLoading();
+
+            await scanDirectoryRecursive(rootDirectoryHandle, rootDirectoryHandle.name);
+
+            renderTable();
+            
+            btnCheckAll.disabled = false;
+            btnUpdateAll.disabled = true;
+            btnDownloadZip.disabled = true;
+            
+            log(`Mapeamento concluído. ${filesData.length} arquivos encontrados.`);
+            fileCountSpan.textContent = `${filesData.length} arquivos locais`;
+        }
+
+
         async function scanDirectoryRecursive(dirHandle, currentPath) {
             for await (const entry of dirHandle.values()) {
                 if (entry.kind === 'file') {
-                    // Obtém metadados do arquivo local imediatamente para ter a data
                     const fileObj = await entry.getFile();
                     const fullPath = `${currentPath}/${entry.name}`;
                     const remoteUrl = `${BASE_URL}${fullPath}`;
@@ -154,7 +250,7 @@
                         localPath: fullPath,
                         handle: entry,
                         remoteUrl: remoteUrl,
-                        status: 'pending', // pending, checking, current (ok), outdated (update needed), error, updated
+                        status: 'pending',
                         localDate: new Date(fileObj.lastModified),
                         remoteDate: null,
                         remoteBlob: null,
@@ -169,23 +265,31 @@
         async function checkAllRemoteFiles() {
             btnCheckAll.disabled = true;
             btnUpdateAll.disabled = true;
-            log("Comparando datas com o servidor...");
+            btnDownloadZip.disabled = true;
+            log("Comparando datas e baixando metadados...");
 
-            // Executa requisições
             const promises = filesData.map(file => checkSingleFile(file));
             await Promise.all(promises);
 
             renderTable();
             
-            // Habilita "Atualizar Tudo" APENAS se houver arquivos 'outdated'
             const hasOutdated = filesData.some(f => f.status === 'outdated');
+            
+            // Verifica se tem arquivos baixados com sucesso para o ZIP
+            const hasDownloads = filesData.some(f => f.remoteBlob !== null);
+
             if (hasOutdated) {
                 btnUpdateAll.disabled = false;
                 const count = filesData.filter(f => f.status === 'outdated').length;
-                log(`Verificação concluída. ${count} arquivo(s) desatualizado(s).`);
+                log(`Verificação: ${count} arquivo(s) desatualizado(s).`);
             } else {
-                log("Verificação concluída. Tudo atualizado.");
+                log("Verificação concluída.");
             }
+
+            if (hasDownloads) {
+                btnDownloadZip.disabled = false;
+            }
+
             btnCheckAll.disabled = false;
         }
 
@@ -194,7 +298,6 @@
             updateRowStatus(fileObj);
 
             try {
-                // Usamos GET para já pegar o blob se precisar, e pegar os headers
                 const response = await fetch(fileObj.remoteUrl, { 
                     method: 'GET',
                     cache: 'no-cache' 
@@ -205,24 +308,17 @@
                 if (response.ok) {
                     fileObj.remoteBlob = await response.blob();
                     
-                    // Lógica de Comparação de Datas
                     const lastModifiedHeader = response.headers.get('Last-Modified');
                     
                     if (lastModifiedHeader) {
                         fileObj.remoteDate = new Date(lastModifiedHeader);
-                        
-                        // Comparação: Se Nuvem > Local = Desatualizado
                         if (fileObj.remoteDate > fileObj.localDate) {
                             fileObj.status = 'outdated';
                         } else {
-                            fileObj.status = 'current'; // Local é igual ou mais novo
+                            fileObj.status = 'current';
                         }
                     } else {
-                        // Se servidor não mandar data, assumimos que precisa atualizar ou tratamos como erro?
-                        // Vamos tratar como outdated por segurança ou current? 
-                        // Vou marcar como 'unknown-date' mas permitir update manual
                         fileObj.status = 'outdated'; 
-                        console.warn(`Sem header Last-Modified para ${fileObj.localPath}`);
                     }
 
                 } else {
@@ -238,24 +334,59 @@
             updateRowStatus(fileObj);
         }
 
-        async function updateOutdatedFiles() {
-            // Filtra APENAS os desatualizados
-            const toUpdate = filesData.filter(f => f.status === 'outdated');
+        // --- Função ZIP ---
+        async function downloadAllAsZip() {
+            const validFiles = filesData.filter(f => f.remoteBlob !== null);
             
+            if (validFiles.length === 0) {
+                alert("Nenhum arquivo válido foi baixado da nuvem para criar o ZIP.");
+                return;
+            }
+
+            log("Gerando arquivo ZIP...");
+            btnDownloadZip.disabled = true;
+
+            try {
+                const zip = new JSZip();
+
+                // Adiciona arquivos ao ZIP mantendo a estrutura
+                validFiles.forEach(file => {
+                    // file.localPath é algo como "PastaRaiz/sub/arquivo.css"
+                    // Vamos remover a pasta raiz do nome para o ZIP ficar limpo, ou manter.
+                    // Opção: Manter o caminho completo
+                    zip.file(file.localPath, file.remoteBlob);
+                });
+
+                // Gera o binário
+                const content = await zip.generateAsync({type: "blob"});
+                
+                // Salva
+                const zipName = `backup_${rootDirectoryHandle.name}_${new Date().toISOString().slice(0,10)}.zip`;
+                saveAs(content, zipName);
+                
+                log("ZIP gerado com sucesso!");
+            } catch (e) {
+                console.error(e);
+                alert("Erro ao gerar ZIP: " + e.message);
+                log("Erro na geração do ZIP.");
+            } finally {
+                btnDownloadZip.disabled = false;
+            }
+        }
+
+        async function updateOutdatedFiles() {
+            const toUpdate = filesData.filter(f => f.status === 'outdated');
             if (toUpdate.length === 0) return;
             
-            if(!confirm(`Existem ${toUpdate.length} arquivos mais recentes na nuvem.\nDeseja atualizar seus arquivos locais?`)) {
+            if(!confirm(`Deseja atualizar ${toUpdate.length} arquivos locais?`)) {
                 return;
             }
 
             log(`Atualizando ${toUpdate.length} arquivos...`);
-            
             for (const file of toUpdate) {
                 await writeToFile(file);
             }
-            
             log("Sincronização concluída!");
-            // Re-verifica para atualizar status visual
             renderTable();
         }
 
@@ -265,11 +396,8 @@
                 await writable.write(fileObj.remoteBlob);
                 await writable.close();
 
-                // Atualiza a data local no objeto para refletir a mudança
-                // (Na prática o sistema operacional atualiza a data do arquivo, 
-                // então marcamos como 'updated' para feedback visual)
                 fileObj.status = 'updated';
-                fileObj.localDate = new Date(); // Simula nova data local
+                fileObj.localDate = new Date(); 
                 updateRowStatus(fileObj);
             } catch (error) {
                 console.error("Write error:", error);
@@ -318,7 +446,6 @@
             let statusBadge = '<span class="text-gray-600">-</span>';
             let actionBtn = '';
             
-            // Lógica de visualização baseada no status
             switch (file.status) {
                 case 'checking':
                     statusBadge = '<i class="fas fa-spinner text-blue-400"></i>';
@@ -343,7 +470,6 @@
                     break;
             }
 
-            // Destaca a data remota se ela for mais nova
             const remoteDateClass = (file.remoteDate > file.localDate) ? "text-yellow-400 font-bold" : "text-gray-400";
 
             return `
