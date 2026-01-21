@@ -35,7 +35,7 @@
                 <i class="fa-solid fa-sync mr-2"></i> Sincronizador RenovaWeb (Fonte: Cloud)
             </h1>
             <p class="text-gray-400">
-                A estrutura de arquivos é ditada pelo <code>manifest.json</code> remoto.
+                A estrutura de arquivos é ditada pelo arquivo <code>paths.json</code> remoto.
                 <br>
                 Base: <code class="bg-gray-800 px-2 py-1 rounded text-yellow-500 text-sm">https://extensions.io.log.br/renovaweb/...</code>
             </p>
@@ -59,7 +59,7 @@
 
                 <div class="flex flex-wrap gap-3 justify-end">
                     <button id="btnCheckAll" disabled class="disabled:opacity-50 disabled:cursor-not-allowed bg-gray-700 hover:bg-gray-600 text-white py-2 px-4 rounded border border-gray-600">
-                        <i class="fa-solid fa-cloud-download-alt"></i> 1. Buscar Nuvem & Comparar
+                        <i class="fa-solid fa-cloud-download-alt"></i> 1. Buscar Lista & Comparar
                     </button>
                     
                     <button id="btnUpdateAll" disabled class="disabled:opacity-50 disabled:cursor-not-allowed bg-indigo-600 hover:bg-indigo-500 text-white py-2 px-4 rounded border border-indigo-600 shadow-lg shadow-indigo-900/50 font-bold">
@@ -79,7 +79,7 @@
                 <table class="w-full text-left border-collapse text-sm">
                     <thead>
                         <tr class="bg-gray-900 text-gray-400 uppercase tracking-wider">
-                            <th class="p-4 border-b border-gray-700">Arquivo (Baseado no Manifesto)</th>
+                            <th class="p-4 border-b border-gray-700">Arquivo (Baseado em paths.json)</th>
                             <th class="p-4 border-b border-gray-700 w-48">Data Local</th>
                             <th class="p-4 border-b border-gray-700 w-48">Data Nuvem</th>
                             <th class="p-4 border-b border-gray-700 w-32 text-center">Status</th>
@@ -208,7 +208,7 @@
             // Habilita o botão de checagem, mas não lista nada ainda pois a fonte da verdade é a nuvem
             filesData = [];
             localFilesMap.clear();
-            fileListBody.innerHTML = `<tr><td colspan="5" class="p-8 text-center text-blue-300">Diretório selecionado.<br>Clique em <strong>"Buscar Nuvem & Comparar"</strong> para baixar o manifesto.</td></tr>`;
+            fileListBody.innerHTML = `<tr><td colspan="5" class="p-8 text-center text-blue-300">Diretório selecionado.<br>Clique em <strong>"Buscar Lista & Comparar"</strong> para ler paths.json.</td></tr>`;
             
             btnCheckAll.disabled = false;
             btnUpdateAll.disabled = true;
@@ -243,52 +243,53 @@
             log("1/3: Mapeando arquivos locais...");
             renderTableLoading("Mapeando arquivos locais...");
             
-            // 1. Mapeia localmente primeiro (para ter os handles de escrita e datas)
+            // 1. Mapeia localmente primeiro
             try {
                 await mapLocalFiles(rootDirectoryHandle, rootDirectoryHandle.name);
             } catch (e) {
                 console.error("Erro leitura local:", e);
             }
 
-            log("2/3: Buscando manifesto remoto...");
+            log("2/3: Buscando paths.json remoto...");
             
-            // 2. Busca o Manifest
-            let manifestTree = [];
+            // 2. Busca o paths.json
+            let pathsTree = [];
             try {
-                const manifestUrl = `${BASE_URL}${rootDirectoryHandle.name}/manifest.json`;
-                const manifestResp = await fetch(manifestUrl, { cache: 'no-cache' });
+                // ALTERADO: Agora busca paths.json em vez de manifest.json
+                const pathsUrl = `${BASE_URL}${rootDirectoryHandle.name}/paths.json`;
+                const pathsResp = await fetch(pathsUrl, { cache: 'no-cache' });
                 
-                if (manifestResp.ok) {
-                    const manifestData = await manifestResp.json();
-                    if (manifestData.tree && Array.isArray(manifestData.tree)) {
-                        manifestTree = manifestData.tree;
-                        log(`Manifesto carregado. ${manifestTree.length} arquivos definidos.`);
+                if (pathsResp.ok) {
+                    const pathsData = await pathsResp.json();
+                    if (pathsData.tree && Array.isArray(pathsData.tree)) {
+                        pathsTree = pathsData.tree;
+                        log(`Lista de arquivos carregada (paths.json). ${pathsTree.length} itens.`);
                     } else {
-                        throw new Error("Manifesto sem propriedade 'tree' válida.");
+                        throw new Error("paths.json sem propriedade 'tree' válida.");
                     }
                 } else {
-                    throw new Error(`Erro ao baixar manifesto: ${manifestResp.status}`);
+                    throw new Error(`paths.json não encontrado (${pathsResp.status})`);
                 }
             } catch (e) {
                 console.error(e);
-                alert("Erro crítico: Não foi possível obter a lista de arquivos da nuvem (manifest.json).\n" + e.message);
-                renderTable(); // Mostra vazio ou erro
+                alert(`Erro crítico: Não foi possível obter paths.json da nuvem.\nVerifique se o arquivo existe em: ${BASE_URL}${rootDirectoryHandle.name}/paths.json\n\nDetalhes: ${e.message}`);
+                renderTable(); 
                 btnCheckAll.disabled = false;
                 return;
             }
 
             log("3/3: Cruzando dados e verificando versões...");
 
-            // 3. Constrói a lista baseada na Nuvem (Fonte da Verdade)
+            // 3. Constrói a lista baseada na Nuvem (paths.json é a Fonte da Verdade)
             
-            // Para cada arquivo no manifesto...
-            for (const relPath of manifestTree) {
-                const fullLocalPath = `${rootDirectoryHandle.name}/${relPath}`; // Ex: Pasta/src/bg.js
+            // Para cada arquivo na tree do paths.json...
+            for (const relPath of pathsTree) {
+                const fullLocalPath = `${rootDirectoryHandle.name}/${relPath}`;
                 const remoteUrl = `${BASE_URL}${fullLocalPath}`;
                 
                 const localData = localFilesMap.get(fullLocalPath);
                 
-                // Remove do mapa local para sobrarem apenas os arquivos "extras" (não rastreados)
+                // Remove do mapa local para sobrarem apenas os arquivos "extras"
                 if (localData) localFilesMap.delete(fullLocalPath);
 
                 filesData.push({
@@ -305,14 +306,17 @@
                 });
             }
 
-            // 4. Adiciona arquivos locais que NÃO estão no manifesto (Untracked)
+            // 4. Adiciona arquivos locais que NÃO estão no paths.json (Untracked)
             for (const [path, data] of localFilesMap) {
+                // Ignora o próprio paths.json se ele existir localmente mas não estiver na lista
+                if (path.endsWith('paths.json')) continue; 
+
                 filesData.push({
                     id: crypto.randomUUID(),
                     localPath: path,
                     handle: data.handle,
-                    remoteUrl: `${BASE_URL}${path}`, // URL teórica
-                    status: 'untracked', // Não está no manifesto
+                    remoteUrl: `${BASE_URL}${path}`, 
+                    status: 'untracked', // Não está no paths.json
                     localDate: new Date(data.lastModified),
                     remoteDate: null,
                     remoteBlob: null,
@@ -321,7 +325,7 @@
                 });
             }
 
-            // 5. Verifica status individual (HEAD/GET) apenas para arquivos do manifesto
+            // 5. Verifica status individual
             const promises = filesData
                 .filter(f => f.status !== 'untracked')
                 .map(file => checkSingleFile(file));
@@ -350,8 +354,7 @@
 
         async function checkSingleFile(fileObj) {
             fileObj.status = 'checking';
-            // updateRowStatus(fileObj); // Desabilitado para performance em massa
-
+            
             try {
                 const response = await fetch(fileObj.remoteUrl, { method: 'GET', cache: 'no-cache' });
                 fileObj.httpStatus = response.status;
