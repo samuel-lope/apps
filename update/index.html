@@ -14,11 +14,18 @@
         .fa-spinner { animation: spin 1s linear infinite; }
         
         /* Cores de Status */
-        .status-updated { color: #10b981; } /* Verde - Local é atual */
-        .status-outdated { color: #f59e0b; } /* Laranja - Local é velho */
-        .status-missing { color: #a855f7; }  /* Roxo - Arquivo Novo */
-        .status-untracked { color: #6b7280; } /* Cinza - Apenas Local */
-        .status-error { color: #ef4444; }    /* Vermelho - Erro */
+        .status-updated { color: #10b981; } /* Verde */
+        .status-outdated { color: #f59e0b; } /* Laranja */
+        .status-missing { color: #a855f7; }  /* Roxo */
+        .status-untracked { color: #6b7280; } /* Cinza */
+        .status-error { color: #ef4444; }    /* Vermelho */
+
+        /* Animação do Modal */
+        .modal-enter { animation: fadeIn 0.2s ease-out; }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: scale(0.95); }
+            to { opacity: 1; transform: scale(1); }
+        }
 
         ::-webkit-scrollbar { width: 8px; }
         ::-webkit-scrollbar-track { background: #1f2937; }
@@ -28,11 +35,11 @@
 </head>
 <body class="bg-gray-900 text-gray-100 font-sans min-h-screen p-6">
 
-    <div class="max-w-7xl mx-auto">
+    <div class="max-w-7xl mx-auto relative z-0">
         <!-- Header -->
         <header class="mb-8 border-b border-gray-700 pb-4">
             <h1 class="text-3xl font-bold text-blue-400 mb-2">
-                <i class="fa-solid fa-sync mr-2"></i> Sincronizador RenovaWeb (Fonte: Cloud)
+                <i class="fa-solid fa-sync mr-2"></i> Sincronizador RenovaWeb
             </h1>
             <p class="text-gray-400">
                 A estrutura de arquivos é ditada pelo arquivo <code>paths.json</code> remoto.
@@ -104,13 +111,43 @@
         </div>
     </div>
 
+    <!-- MODAL DE SISTEMA -->
+    <div id="appModal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
+        <div class="bg-gray-800 rounded-xl shadow-2xl border border-gray-600 max-w-md w-full modal-enter transform transition-all">
+            <!-- Cabeçalho -->
+            <div class="flex items-center justify-between p-4 border-b border-gray-700">
+                <h3 id="modalTitle" class="text-xl font-bold text-white">Confirmação</h3>
+                <button onclick="closeModal()" class="text-gray-400 hover:text-white transition-colors">
+                    <i class="fa-solid fa-xmark fa-lg"></i>
+                </button>
+            </div>
+            
+            <!-- Corpo -->
+            <div class="p-6">
+                <p id="modalMessage" class="text-gray-300 text-base leading-relaxed">
+                    Mensagem do sistema aqui.
+                </p>
+            </div>
+
+            <!-- Rodapé / Botões -->
+            <div class="p-4 border-t border-gray-700 flex justify-end gap-3 bg-gray-800/50 rounded-b-xl">
+                <button id="modalBtnCancel" class="px-4 py-2 rounded text-gray-300 hover:bg-gray-700 transition-colors font-medium">
+                    Cancelar
+                </button>
+                <button id="modalBtnConfirm" class="px-4 py-2 rounded bg-blue-600 hover:bg-blue-500 text-white font-bold shadow-lg shadow-blue-900/50 transition-colors">
+                    Confirmar
+                </button>
+            </div>
+        </div>
+    </div>
+
     <!-- Scripts -->
     <script>
         const BASE_URL = "https://extensions.io.log.br/renovaweb/";
         
         let rootDirectoryHandle = null;
         let filesData = [];
-        let localFilesMap = new Map(); // Mapa temporário de arquivos locais
+        let localFilesMap = new Map();
 
         // DOM Elements
         const btnSelectDir = document.getElementById('btnSelectDir');
@@ -123,12 +160,83 @@
         const fileCountSpan = document.getElementById('fileCount');
         const logStatusSpan = document.getElementById('logStatus');
 
+        // Modal Elements
+        const appModal = document.getElementById('appModal');
+        const modalTitle = document.getElementById('modalTitle');
+        const modalMessage = document.getElementById('modalMessage');
+        const modalBtnCancel = document.getElementById('modalBtnCancel');
+        const modalBtnConfirm = document.getElementById('modalBtnConfirm');
+
         // Events
         btnSelectDir.addEventListener('click', handleDirectorySelection);
         btnRestoreDir.addEventListener('click', restoreDirectoryAccess);
         btnCheckAll.addEventListener('click', checkAllRemoteFiles);
         btnUpdateAll.addEventListener('click', syncFiles);
         btnDownloadZip.addEventListener('click', downloadAllAsZip);
+
+        // --- UI Helper Functions (MODAL) ---
+
+        let modalResolver = null;
+
+        function closeModal() {
+            appModal.classList.add('hidden');
+            if (modalResolver) modalResolver(false); // Default to false if closed via X
+            modalResolver = null;
+        }
+
+        // Função Genérica para mostrar o Modal
+        function showModal({ title, message, type = 'alert', confirmText = 'OK', cancelText = 'Cancelar' }) {
+            return new Promise((resolve) => {
+                modalResolver = resolve;
+                
+                modalTitle.textContent = title;
+                modalMessage.innerHTML = message.replace(/\n/g, '<br>'); // Suporta quebras de linha
+                modalBtnConfirm.textContent = confirmText;
+                modalBtnCancel.textContent = cancelText;
+
+                // Configuração baseada no tipo
+                if (type === 'confirm') {
+                    modalBtnCancel.classList.remove('hidden');
+                    
+                    modalBtnCancel.onclick = () => {
+                        appModal.classList.add('hidden');
+                        resolve(false);
+                    };
+                    
+                    modalBtnConfirm.onclick = () => {
+                        appModal.classList.add('hidden');
+                        resolve(true);
+                    };
+                    modalBtnConfirm.className = "px-4 py-2 rounded bg-blue-600 hover:bg-blue-500 text-white font-bold shadow-lg shadow-blue-900/50 transition-colors";
+
+                } else if (type === 'danger') {
+                    // Confirmação perigosa (ex: sobrescrever)
+                    modalBtnCancel.classList.remove('hidden');
+                    modalBtnCancel.onclick = () => { appModal.classList.add('hidden'); resolve(false); };
+                    modalBtnConfirm.onclick = () => { appModal.classList.add('hidden'); resolve(true); };
+                    modalBtnConfirm.className = "px-4 py-2 rounded bg-red-600 hover:bg-red-500 text-white font-bold shadow-lg shadow-red-900/50 transition-colors";
+
+                } else {
+                    // Alert simples
+                    modalBtnCancel.classList.add('hidden');
+                    modalBtnConfirm.onclick = () => {
+                        appModal.classList.add('hidden');
+                        resolve(true);
+                    };
+                    modalBtnConfirm.className = "px-4 py-2 rounded bg-gray-600 hover:bg-gray-500 text-white font-bold shadow transition-colors";
+                }
+
+                appModal.classList.remove('hidden');
+            });
+        }
+
+        async function showAlert(message, title = "Aviso") {
+            await showModal({ title, message, type: 'alert' });
+        }
+
+        async function showConfirm(message, title = "Confirmação") {
+            return await showModal({ title, message, type: 'confirm', confirmText: 'Sim', cancelText: 'Não' });
+        }
 
         // --- IndexedDB Logic ---
         const DB_NAME = 'R2SyncDB';
@@ -182,16 +290,21 @@
                 await saveHandle(rootDirectoryHandle);
                 await initializeDirectoryView();
             } catch (err) {
-                if (err.name !== 'AbortError') alert("Erro: " + err.message);
+                if (err.name !== 'AbortError') await showAlert("Erro ao selecionar diretório: " + err.message, "Erro");
             }
         }
 
         async function restoreDirectoryAccess() {
             if (!rootDirectoryHandle) return;
+            
+            // Nota: O prompt de permissão do navegador é NATIVO e não pode ser substituído por HTML.
+            // Mas podemos avisar antes.
+            await showAlert("O navegador solicitará permissão para visualizar e editar os arquivos nesta pasta.\nPor favor, clique em 'Visualizar/Editar arquivos' no próximo aviso.", "Permissão de Segurança");
+
             const options = { mode: 'readwrite' };
             if ((await rootDirectoryHandle.queryPermission(options)) !== 'granted') {
                 if ((await rootDirectoryHandle.requestPermission(options)) !== 'granted') {
-                    alert('Permissão necessária.');
+                    await showAlert('Permissão negada pelo usuário. Não é possível continuar.', "Acesso Negado");
                     return;
                 }
             }
@@ -205,7 +318,6 @@
             selectedPathDisplay.classList.add('text-green-400');
             selectedPathDisplay.classList.remove('text-gray-400');
 
-            // Habilita o botão de checagem, mas não lista nada ainda pois a fonte da verdade é a nuvem
             filesData = [];
             localFilesMap.clear();
             fileListBody.innerHTML = `<tr><td colspan="5" class="p-8 text-center text-blue-300">Diretório selecionado.<br>Clique em <strong>"Buscar Lista & Comparar"</strong> para ler paths.json.</td></tr>`;
@@ -216,7 +328,6 @@
             log("Aguardando verificação com a nuvem...");
         }
 
-        // Mapeia arquivos locais para comparação rápida, sem exibir na UI ainda
         async function mapLocalFiles(dirHandle, currentPath) {
             for await (const entry of dirHandle.values()) {
                 if (entry.kind === 'file') {
@@ -243,19 +354,17 @@
             log("1/3: Mapeando arquivos locais...");
             renderTableLoading("Mapeando arquivos locais...");
             
-            // 1. Mapeia localmente primeiro
             try {
                 await mapLocalFiles(rootDirectoryHandle, rootDirectoryHandle.name);
             } catch (e) {
                 console.error("Erro leitura local:", e);
+                await showAlert("Erro ao ler arquivos locais: " + e.message, "Erro");
             }
 
             log("2/3: Buscando paths.json remoto...");
             
-            // 2. Busca o paths.json
             let pathsTree = [];
             try {
-                // ALTERADO: Agora busca paths.json em vez de manifest.json
                 const pathsUrl = `${BASE_URL}${rootDirectoryHandle.name}/paths.json`;
                 const pathsResp = await fetch(pathsUrl, { cache: 'no-cache' });
                 
@@ -263,41 +372,36 @@
                     const pathsData = await pathsResp.json();
                     if (pathsData.tree && Array.isArray(pathsData.tree)) {
                         pathsTree = pathsData.tree;
-                        log(`Lista de arquivos carregada (paths.json). ${pathsTree.length} itens.`);
+                        log(`Lista carregada. ${pathsTree.length} itens.`);
                     } else {
-                        throw new Error("paths.json sem propriedade 'tree' válida.");
+                        throw new Error("paths.json inválido.");
                     }
                 } else {
                     throw new Error(`paths.json não encontrado (${pathsResp.status})`);
                 }
             } catch (e) {
                 console.error(e);
-                alert(`Erro crítico: Não foi possível obter paths.json da nuvem.\nVerifique se o arquivo existe em: ${BASE_URL}${rootDirectoryHandle.name}/paths.json\n\nDetalhes: ${e.message}`);
                 renderTable(); 
                 btnCheckAll.disabled = false;
+                await showAlert(`Não foi possível obter paths.json da nuvem.\nVerifique: ${BASE_URL}${rootDirectoryHandle.name}/paths.json\n\nErro: ${e.message}`, "Erro de Conexão");
                 return;
             }
 
-            log("3/3: Cruzando dados e verificando versões...");
+            log("3/3: Cruzando dados...");
 
-            // 3. Constrói a lista baseada na Nuvem (paths.json é a Fonte da Verdade)
-            
-            // Para cada arquivo na tree do paths.json...
             for (const relPath of pathsTree) {
                 const fullLocalPath = `${rootDirectoryHandle.name}/${relPath}`;
                 const remoteUrl = `${BASE_URL}${fullLocalPath}`;
-                
                 const localData = localFilesMap.get(fullLocalPath);
                 
-                // Remove do mapa local para sobrarem apenas os arquivos "extras"
                 if (localData) localFilesMap.delete(fullLocalPath);
 
                 filesData.push({
                     id: crypto.randomUUID(),
                     localPath: fullLocalPath,
-                    handle: localData ? localData.handle : null, // Se null, é missing
+                    handle: localData ? localData.handle : null,
                     remoteUrl: remoteUrl,
-                    status: 'pending', // Será resolvido no fetch individual
+                    status: 'pending',
                     localDate: localData ? new Date(localData.lastModified) : null,
                     remoteDate: null,
                     remoteBlob: null,
@@ -306,17 +410,14 @@
                 });
             }
 
-            // 4. Adiciona arquivos locais que NÃO estão no paths.json (Untracked)
             for (const [path, data] of localFilesMap) {
-                // Ignora o próprio paths.json se ele existir localmente mas não estiver na lista
                 if (path.endsWith('paths.json')) continue; 
-
                 filesData.push({
                     id: crypto.randomUUID(),
                     localPath: path,
                     handle: data.handle,
                     remoteUrl: `${BASE_URL}${path}`, 
-                    status: 'untracked', // Não está no paths.json
+                    status: 'untracked',
                     localDate: new Date(data.lastModified),
                     remoteDate: null,
                     remoteBlob: null,
@@ -325,7 +426,6 @@
                 });
             }
 
-            // 5. Verifica status individual
             const promises = filesData
                 .filter(f => f.status !== 'untracked')
                 .map(file => checkSingleFile(file));
@@ -334,7 +434,6 @@
 
             renderTable();
             
-            // Habilita controles
             const syncNeeded = filesData.some(f => f.status === 'outdated' || f.status === 'missing');
             const hasDownloads = filesData.some(f => f.remoteBlob !== null);
 
@@ -368,7 +467,6 @@
                     if (fileObj.isMissingLocally) {
                         fileObj.status = 'missing';
                     } else {
-                        // Comparação de data
                         if (fileObj.remoteDate && fileObj.localDate && fileObj.remoteDate > fileObj.localDate) {
                             fileObj.status = 'outdated';
                         } else {
@@ -389,15 +487,28 @@
             const toUpdate = filesData.filter(f => f.status === 'outdated' || f.status === 'missing');
             if (toUpdate.length === 0) return;
             
-            if(!confirm(`Confirmar sincronização de ${toUpdate.length} arquivos?\n(Isso sobrescreverá arquivos locais)`)) return;
+            const confirmed = await showConfirm(
+                `Confirmar sincronização de ${toUpdate.length} arquivos?\n\nArquivos locais serão sobrescritos pelas versões da nuvem.`,
+                "Iniciar Sincronização"
+            );
+
+            if(!confirmed) return;
 
             log(`Sincronizando ${toUpdate.length} arquivos...`);
             
+            let errors = 0;
             for (const file of toUpdate) {
-                await writeToFile(file);
+                const success = await writeToFile(file);
+                if (!success) errors++;
             }
             
-            log("Sincronização concluída!");
+            if (errors > 0) {
+                log(`Finalizado com ${errors} erros.`);
+                await showAlert(`${errors} arquivos falharam ao salvar. Verifique se estão abertos em outro programa.`, "Atenção");
+            } else {
+                log("Sincronização concluída com sucesso!");
+                await showAlert("Todos os arquivos foram sincronizados.", "Sucesso");
+            }
             renderTable();
         }
 
@@ -429,17 +540,22 @@
                 fileObj.status = 'updated';
                 fileObj.localDate = new Date(); 
                 updateRowStatus(fileObj);
+                return true;
             } catch (error) {
                 console.error("Write error:", error);
                 fileObj.status = 'write-error';
                 updateRowStatus(fileObj);
+                return false;
             }
         }
 
         // --- UI Utils ---
-        function downloadAllAsZip() {
+        async function downloadAllAsZip() {
             const validFiles = filesData.filter(f => f.remoteBlob !== null);
-            if (validFiles.length === 0) { alert("Sem dados para ZIP."); return; }
+            if (validFiles.length === 0) { 
+                await showAlert("Sem arquivos baixados para gerar o ZIP.", "Aviso"); 
+                return; 
+            }
 
             log("Compactando ZIP...");
             btnDownloadZip.disabled = true;
@@ -449,13 +565,13 @@
                     const zipPath = file.localPath.split('/').slice(1).join('/'); 
                     zip.file(zipPath, file.remoteBlob);
                 });
-                zip.generateAsync({type: "blob"}).then(content => {
-                    saveAs(content, `backup_${rootDirectoryHandle.name}.zip`);
-                    log("ZIP baixado.");
-                    btnDownloadZip.disabled = false;
-                });
+                const content = await zip.generateAsync({type: "blob"});
+                saveAs(content, `backup_${rootDirectoryHandle.name}.zip`);
+                log("ZIP baixado.");
+                
             } catch (e) { 
-                alert("Erro ZIP: " + e.message); 
+                await showAlert("Erro ao gerar ZIP: " + e.message, "Erro");
+            } finally {
                 btnDownloadZip.disabled = false;
             }
         }
@@ -549,7 +665,23 @@
 
         window.triggerSingleUpdate = async (id) => {
             const file = filesData.find(f => f.id === id);
-            if (file) await writeToFile(file);
+            if (!file) return;
+
+            // Usa o modal customizado com await
+            const confirmMsg = file.status === 'missing' 
+                ? `Deseja baixar o novo arquivo:\n${file.localPath}?` 
+                : `Deseja sobrescrever o arquivo local:\n${file.localPath}?`;
+
+            const confirmed = await showModal({
+                title: "Confirmar Ação",
+                message: confirmMsg,
+                type: 'danger', // Estilo vermelho para alertar sobre escrita
+                confirmText: "Sim, Executar"
+            });
+
+            if (confirmed) {
+                await writeToFile(file);
+            }
         };
     </script>
 </body>
