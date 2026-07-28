@@ -1,0 +1,1197 @@
+<!DOCTYPE html>
+<html lang="pt-BR" class="h-full bg-slate-50">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Leitor JSON &amp; Gerador de Relatórios de Mensagem</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Font Awesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts Inter -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                        mono: ['JetBrains Mono', 'monospace'],
+                    },
+                    colors: {
+                        sheets: {
+                            50: '#f0fdf4',
+                            100: '#dcfce7',
+                            600: '#16a34a',
+                            700: '#15803d',
+                            800: '#166534',
+                            header: '#0f9d58'
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        /* Custom scrollbar for spreadsheet view */
+        .sheet-scrollbar::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        .sheet-scrollbar::-webkit-scrollbar-track {
+            background: #f1f5f9;
+        }
+        .sheet-scrollbar::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 4px;
+        }
+        .sheet-scrollbar::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8;
+        }
+        
+        /* Grid table borders styled like Google Sheets */
+        .sheets-table td, .sheets-table th {
+            border-right: 1px solid #e2e8f0;
+            border-bottom: 1px solid #e2e8f0;
+        }
+        .sheets-table th {
+            background-color: #f8fafc;
+            user-select: none;
+        }
+        .sheets-table tr:hover td {
+            background-color: #f1f5f9;
+        }
+        .sheets-table td.selected {
+            background-color: #e0f2fe;
+            outline: 2px solid #0284c7;
+            outline-offset: -2px;
+        }
+
+        /* Drag & Drop column reorder */
+        .sheets-table th[draggable="true"] {
+            cursor: grab;
+        }
+        .sheets-table th[draggable="true"]:active {
+            cursor: grabbing;
+        }
+        .sheets-table th.drag-over {
+            background-color: #dbeafe !important;
+            border-left: 3px solid #2563eb;
+        }
+
+        /* Group header row in spreadsheet */
+        .group-header-row {
+            background-color: #f0fdf4 !important;
+            cursor: pointer;
+            user-select: none;
+        }
+        .group-header-row:hover {
+            background-color: #dcfce7 !important;
+        }
+        .group-header-row td {
+            background-color: inherit !important;
+            font-weight: 600;
+            color: #166534;
+            padding: 8px 12px !important;
+        }
+
+        /* Sync button spinner */
+        @keyframes spin {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+        .animate-spin {
+            animation: spin 1s linear infinite;
+        }
+
+        /* Empty state */
+        .empty-state {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 3rem 2rem;
+            color: #94a3b8;
+        }
+    </style>
+</head>
+<body class="h-full flex flex-col font-sans text-slate-800 antialiased">
+
+    <!-- Top Navigation Bar -->
+    <header class="bg-white border-b border-slate-200 sticky top-0 z-30 shadow-sm">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between h-16 items-center">
+                <!-- Logo & Title -->
+                <div class="flex items-center space-x-3">
+                    <div class="w-10 h-10 rounded-lg bg-emerald-600 flex items-center justify-center text-white shadow-md">
+                        <i class="fa-solid fa-file-excel text-xl"></i>
+                    </div>
+                    <div>
+                        <h1 class="text-lg font-bold text-slate-900 leading-tight">Painel JSON &amp; Relatórios</h1>
+                        <p class="text-xs text-slate-500">Filtragem em Planilha e Gerador de Texto para WhatsApp</p>
+                    </div>
+                </div>
+
+                <!-- Actions -->
+                <div class="flex items-center space-x-2">
+                    <button id="btnOpenImport" onclick="openImportModal()" class="inline-flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white px-3.5 py-2 rounded-lg text-sm font-medium transition shadow-sm">
+                        <i class="fa-solid fa-file-import"></i>
+                        <span>Carregar JSON</span>
+                    </button>
+                    <button id="btnSyncNotion" onclick="syncWithNotion()" class="inline-flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-3.5 py-2 rounded-lg text-sm font-medium transition shadow-sm">
+                        <i class="fa-solid fa-rotate"></i>
+                        <span class="hidden sm:inline">Sincronizar com Notion</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content Container -->
+    <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 flex flex-col gap-6">
+
+        <!-- Top Controls & Filters Card -->
+        <section class="bg-white rounded-xl shadow-sm border border-slate-200 p-4 sm:p-5">
+            <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-4 pb-4 border-b border-slate-100">
+                
+                <!-- Quick Stats Badge -->
+                <div class="flex items-center gap-3">
+                    <div class="px-3 py-1.5 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-semibold flex items-center gap-2">
+                        <i class="fa-solid fa-database text-emerald-600"></i>
+                        <span>Total: <strong id="totalCount">0</strong> registros</span>
+                    </div>
+                    <div class="px-3 py-1.5 rounded-lg bg-blue-50 border border-blue-200 text-blue-800 text-xs font-semibold flex items-center gap-2">
+                        <i class="fa-solid fa-filter text-blue-600"></i>
+                        <span>Exibindo: <strong id="filteredCount">0</strong></span>
+                    </div>
+                </div>
+
+                <!-- Global Search Box -->
+                <div class="relative flex-1 max-w-md">
+                    <i class="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm"></i>
+                    <input type="text" id="globalSearch" oninput="applyFilters()" placeholder="Buscar em todos os campos..." 
+                        class="w-full pl-9 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:bg-white transition">
+                </div>
+
+                <!-- View Switcher Tabs -->
+                <div class="flex bg-slate-100 p-1 rounded-lg self-start lg:self-auto">
+                    <button id="tabSheetBtn" onclick="switchTab('sheet')" class="px-4 py-1.5 text-xs font-semibold rounded-md transition shadow-sm bg-white text-slate-800">
+                        <i class="fa-solid fa-table-cells mr-1.5 text-emerald-600"></i>Planilha
+                    </button>
+                    <button id="tabTextBtn" onclick="switchTab('text')" class="px-4 py-1.5 text-xs font-semibold rounded-md transition text-slate-600 hover:text-slate-900">
+                        <i class="fa-solid fa-comments mr-1.5 text-blue-600"></i>Gerador de Mensagens
+                    </button>
+                </div>
+            </div>
+
+            <!-- Dynamic Filters Area -->
+            <div class="mt-4">
+                <div class="flex items-center justify-between mb-2">
+                    <span class="text-xs font-bold uppercase tracking-wider text-slate-500 flex items-center gap-1.5">
+                        <i class="fa-solid fa-sliders text-slate-400"></i> Filtros Ativos
+                    </span>
+                    <button onclick="addFilterRow()" class="text-xs font-medium text-emerald-700 hover:text-emerald-800 flex items-center gap-1">
+                        <i class="fa-solid fa-plus-circle"></i> Adicionar Filtro
+                    </button>
+                </div>
+
+                <div id="filterContainer" class="flex flex-wrap gap-2 items-center min-h-[38px]">
+                    <!-- Filter rows will be inserted dynamically here -->
+                    <p id="noFiltersText" class="text-xs text-slate-400 italic">Nenhum filtro aplicado. Clique em "Adicionar Filtro" ou busque acima.</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- VIEW 1: Spreadsheet Table View -->
+        <section id="sheetView" class="bg-white rounded-xl shadow-sm border border-slate-200 flex flex-col flex-1 overflow-hidden">
+            <!-- Sheet Bar Options -->
+            <div class="p-3 bg-slate-50 border-b border-slate-200 flex flex-col gap-3 text-xs">
+                <div class="flex flex-wrap items-center justify-between gap-3">
+                    <div class="flex items-center gap-2">
+                        <span class="font-semibold text-slate-600"><i class="fa-solid fa-columns text-slate-400 mr-1"></i>Colunas Visíveis:</span>
+                        <div id="columnTogglePills" class="flex flex-wrap gap-1 max-w-xl">
+                            <!-- Column checkboxes populated dynamically -->
+                        </div>
+                    </div>
+                    <div class="text-slate-500">
+                        <i class="fa-solid fa-info-circle mr-1"></i> Arraste os cabeçalhos para reordenar colunas
+                    </div>
+                </div>
+                <!-- Grouping Dropdown -->
+                <div class="flex items-center gap-2 pt-2 border-t border-slate-200">
+                    <span class="font-semibold text-slate-600 flex items-center gap-1.5">
+                        <i class="fa-solid fa-layer-group text-indigo-500"></i>Agrupar por:
+                    </span>
+                    <select id="sheetGroupBySelect" onchange="onSheetGroupByChange()" class="bg-white border border-slate-300 rounded-lg px-3 py-1.5 text-xs font-medium focus:ring-2 focus:ring-indigo-500 outline-none min-w-[160px]">
+                        <option value="">(Sem agrupamento)</option>
+                        <!-- Populated with keys dynamically -->
+                    </select>
+                    <span id="groupCountBadge" class="hidden px-2 py-0.5 bg-indigo-50 border border-indigo-200 text-indigo-700 text-[10px] font-semibold rounded-full"></span>
+                </div>
+            </div>
+
+            <!-- Spreadsheet Grid Wrapper -->
+            <div class="overflow-auto sheet-scrollbar flex-1 max-h-[550px] relative">
+                <table class="w-full text-left border-collapse sheets-table text-xs">
+                    <thead class="sticky top-0 z-20 shadow-sm">
+                        <tr id="tableHeader">
+                            <th class="w-12 text-center bg-slate-100 text-slate-500 font-semibold p-2 sticky left-0 z-30 border-r border-b border-slate-300">
+                                #
+                            </th>
+                            <!-- Header columns populated via JS -->
+                        </tr>
+                    </thead>
+                    <tbody id="tableBody" class="divide-y divide-slate-200 bg-white font-mono text-slate-700">
+                        <!-- Table rows populated via JS -->
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <!-- VIEW 2: Message Generator & Grouping -->
+        <section id="textView" class="hidden flex-col gap-6">
+            <!-- Grouping Configuration Card -->
+            <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-5">
+                <h3 class="text-sm font-bold text-slate-800 mb-3 flex items-center gap-2">
+                    <i class="fa-solid fa-sliders text-emerald-600"></i> Configuração do Relatório Formatado
+                </h3>
+                
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <!-- Group By Select -->
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-600 mb-1">Agrupar Mensagens por:</label>
+                        <select id="groupBySelect" onchange="generateFormattedText()" class="w-full bg-slate-50 border border-slate-300 rounded-lg p-2 text-xs font-medium focus:ring-2 focus:ring-emerald-500 outline-none">
+                            <!-- Populated with keys -->
+                        </select>
+                    </div>
+
+                    <!-- Layout / Style Select -->
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-600 mb-1">Estilo da Lista:</label>
+                        <select id="textStyleSelect" onchange="generateFormattedText()" class="w-full bg-slate-50 border border-slate-300 rounded-lg p-2 text-xs font-medium focus:ring-2 focus:ring-emerald-500 outline-none">
+                            <option value="bullet">Marcadores Simples (• *Equip: 1*)</option>
+                            <option value="emoji">Com Emojis (🔹 *Equip: 1*)</option>
+                            <option value="compact">Compacto (*Equip: 1*)</option>
+                        </select>
+                        <div class="flex items-center gap-2 mt-2">
+                            <input type="checkbox" id="showFieldLabels" onchange="generateFormattedText()" class="rounded border-slate-300 text-emerald-600 focus:ring-emerald-500">
+                            <label for="showFieldLabels" class="text-xs text-slate-600 font-medium cursor-pointer select-none">Incluir nome do campo (ex: status: ...)</label>
+                        </div>
+                    </div>
+
+                    <!-- Fields to include in message -->
+                    <div class="md:col-span-1">
+                        <label class="block text-xs font-semibold text-slate-600 mb-1">Campos no Texto:</label>
+                        <div id="textFieldPills" class="flex flex-wrap gap-1.5 max-h-24 overflow-y-auto p-1.5 bg-slate-50 border border-slate-200 rounded-lg">
+                            <!-- Fields checkboxes dynamic -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Output Tabs & Grouped Messages -->
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <!-- Grouped Cards (Left / 2 cols) -->
+                <div class="lg:col-span-2 flex flex-col gap-4" id="groupedOutputsContainer">
+                    <!-- Dynamic group output cards inserted here -->
+                </div>
+
+                <!-- Complete Combined Output (Right / 1 col) -->
+                <div class="lg:col-span-1 flex flex-col bg-slate-900 rounded-xl shadow-md p-4 text-slate-100">
+                    <div class="flex items-center justify-between pb-3 border-b border-slate-800 mb-3">
+                        <h4 class="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center gap-2">
+                            <i class="fa-solid fa-copy text-emerald-400"></i> Texto Unificado
+                        </h4>
+                        <button onclick="copyCombinedText()" class="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-500 text-white rounded text-xs font-medium transition flex items-center gap-1">
+                            <i class="fa-regular fa-copy"></i> Copiar Tudo
+                        </button>
+                    </div>
+                    <textarea id="combinedTextarea" readonly class="w-full flex-1 bg-slate-950 text-slate-200 font-mono text-xs p-3 rounded-lg border border-slate-800 focus:outline-none resize-none h-[420px] sheet-scrollbar leading-relaxed" placeholder="O resultado unificado aparecerá aqui..."></textarea>
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- Modal: Import / Paste JSON -->
+    <div id="importModal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+        <div class="bg-white rounded-2xl shadow-xl max-w-2xl w-full overflow-hidden flex flex-col max-h-[90vh] animate-in fade-in duration-200">
+            <!-- Modal Header -->
+            <div class="p-4 sm:p-5 border-b border-slate-200 flex justify-between items-center bg-slate-50">
+                <div class="flex items-center gap-2">
+                    <i class="fa-solid fa-code text-emerald-600 text-lg"></i>
+                    <h3 class="font-bold text-slate-800">Carregar Dados JSON</h3>
+                </div>
+                <button onclick="closeImportModal()" class="text-slate-400 hover:text-slate-600 p-1 rounded-lg">
+                    <i class="fa-solid fa-xmark text-lg"></i>
+                </button>
+            </div>
+
+            <!-- Modal Content -->
+            <div class="p-5 overflow-y-auto space-y-4">
+                <!-- File Drag and Drop -->
+                <div>
+                    <label class="block text-xs font-semibold text-slate-700 mb-1">Upload de Arquivo .json</label>
+                    <div class="border-2 border-dashed border-slate-300 rounded-xl p-6 text-center hover:border-emerald-500 hover:bg-emerald-50/50 transition cursor-pointer relative" id="dropZone">
+                        <input type="file" id="jsonFileInput" accept=".json" onchange="handleFileSelect(event)" class="absolute inset-0 opacity-0 cursor-pointer">
+                        <i class="fa-solid fa-cloud-arrow-up text-3xl text-slate-400 mb-2"></i>
+                        <p class="text-xs text-slate-600 font-medium">Arraste seu arquivo JSON aqui ou <span class="text-emerald-600 underline">clique para navegar</span></p>
+                        <p class="text-[10px] text-slate-400 mt-1">Aceita arquivos com array de objetos [ { ... }, { ... } ]</p>
+                    </div>
+                </div>
+
+                <div class="relative flex py-1 items-center">
+                    <div class="flex-grow border-t border-slate-200"></div>
+                    <span class="flex-shrink mx-4 text-xs uppercase text-slate-400 font-semibold">Ou cole o código JSON</span>
+                    <div class="flex-grow border-t border-slate-200"></div>
+                </div>
+
+                <!-- Paste JSON Code area -->
+                <div>
+                    <label class="block text-xs font-semibold text-slate-700 mb-1">Cole aqui seu JSON:</label>
+                    <textarea id="jsonPasteInput" rows="7" placeholder='[&#10;  { "status": "Ativo", "supervisor": "Carlos", "aluno": "João" }&#10;]' class="w-full font-mono text-xs p-3 bg-slate-50 border border-slate-300 rounded-xl focus:ring-2 focus:ring-emerald-500 outline-none"></textarea>
+                </div>
+
+                <!-- Error Message -->
+                <div id="jsonError" class="hidden p-3 bg-rose-50 border border-rose-200 rounded-lg text-rose-700 text-xs flex items-start gap-2">
+                    <i class="fa-solid fa-triangle-exclamation mt-0.5"></i>
+                    <span id="jsonErrorText">JSON inválido. Verifique a sintaxe.</span>
+                </div>
+            </div>
+
+            <!-- Modal Footer -->
+            <div class="p-4 bg-slate-50 border-t border-slate-200 flex justify-end gap-2">
+                <button onclick="closeImportModal()" class="px-4 py-2 rounded-lg text-xs font-semibold text-slate-600 hover:bg-slate-200 transition">Cancelar</button>
+                <button onclick="processPastedJson()" class="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-semibold transition shadow-sm">Processar JSON</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- DATA STATE ---
+        let rawData = [];            // Raw loaded JSON array
+        let filteredData = [];       // Data after search and dynamic filters
+        let availableKeys = [];      // Unique keys extracted from JSON objects
+        let visibleColumns = [];     // Currently checked columns for sheet
+        let activeFilters = [];      // Array of active filter objects: { field, operator, value }
+        let selectedTextFields = []; // Fields selected for message generation
+        let currentSort = { key: null, asc: true };
+        let sheetGroupBy = '';       // Field to group by in spreadsheet view
+        let collapsedGroups = new Set(); // Set of collapsed group names
+        let draggedColIndex = null;  // Index of column being dragged
+
+        // --- INITIALIZATION ---
+        window.addEventListener('DOMContentLoaded', () => {
+            renderEmptyState();
+        });
+
+        /**
+         * Renders a friendly empty state when no data is loaded
+         */
+        function renderEmptyState() {
+            document.getElementById('totalCount').textContent = '0';
+            document.getElementById('filteredCount').textContent = '0';
+            const theadRow = document.getElementById('tableHeader');
+            const tbody = document.getElementById('tableBody');
+            theadRow.innerHTML = `<th class="w-12 text-center bg-slate-100 text-slate-500 font-semibold p-2 sticky left-0 z-30 border-r border-b border-slate-300">#</th>`;
+            tbody.innerHTML = `
+                <tr>
+                    <td colspan="100" class="p-0">
+                        <div class="empty-state">
+                            <i class="fa-solid fa-database text-5xl text-slate-300 mb-4"></i>
+                            <h3 class="text-lg font-semibold text-slate-500 mb-1">Nenhum dado carregado</h3>
+                            <p class="text-sm text-slate-400 mb-4 text-center max-w-md">Importe um arquivo JSON ou sincronize com o Notion para começar a visualizar os dados.</p>
+                            <div class="flex gap-3">
+                                <button onclick="openImportModal()" class="inline-flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition shadow-sm">
+                                    <i class="fa-solid fa-file-import"></i> Carregar JSON
+                                </button>
+                                <button onclick="syncWithNotion()" class="inline-flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition shadow-sm">
+                                    <i class="fa-solid fa-rotate"></i> Sincronizar com Notion
+                                </button>
+                            </div>
+                        </div>
+                    </td>
+                </tr>
+            `;
+        }
+
+        /**
+         * Fetches data from the Notion webhook via n8n
+         */
+        async function syncWithNotion() {
+            const btn = document.getElementById('btnSyncNotion');
+            const originalHTML = btn.innerHTML;
+            btn.disabled = true;
+            btn.classList.add('opacity-75', 'cursor-not-allowed');
+            btn.innerHTML = '<i class="fa-solid fa-spinner animate-spin"></i> <span class="hidden sm:inline">Sincronizando...</span>';
+
+            try {
+                const response = await fetch('https://n8n.samuellopes.com.br/webhook/65de5ca3-dc65-422a-b11a-70b79d7b1bb5');
+
+                if (!response.ok) {
+                    throw new Error(`Erro HTTP: ${response.status}`);
+                }
+
+                let data = await response.json();
+
+                // Handle wrapped response (e.g. { "data": [...] })
+                if (!Array.isArray(data) && typeof data === 'object') {
+                    const possibleArrayKey = Object.keys(data).find(k => Array.isArray(data[k]));
+                    if (possibleArrayKey) {
+                        data = data[possibleArrayKey];
+                    } else {
+                        throw new Error('A resposta do servidor não contém uma lista de itens.');
+                    }
+                }
+
+                if (!Array.isArray(data) || data.length === 0) {
+                    throw new Error('Nenhum registro retornado pelo servidor.');
+                }
+
+                loadData(data);
+                showToast(`Sincronizado com sucesso! ${data.length} registros carregados.`);
+            } catch (err) {
+                showToast(`Erro ao sincronizar: ${err.message}`, 'error');
+            } finally {
+                btn.disabled = false;
+                btn.classList.remove('opacity-75', 'cursor-not-allowed');
+                btn.innerHTML = originalHTML;
+            }
+        }
+
+        /**
+         * Helper function to format any value (handles nulls, arrays, objects cleanly)
+         */
+        function formatVal(val) {
+            if (val === null || val === undefined || val === 'null') return '-';
+            if (Array.isArray(val)) return val.length > 0 ? val.join(', ') : '-';
+            return String(val);
+        }
+
+        /**
+         * Parses and sets up data structure from loaded JSON
+         */
+        function loadData(dataArray) {
+            if (!Array.isArray(dataArray) || dataArray.length === 0) {
+                alert('O JSON informado deve ser uma lista (array) com pelo menos um objeto.');
+                return;
+            }
+
+            rawData = dataArray;
+            
+            // Extract all unique keys from all items in array
+            const keySet = new Set();
+            rawData.forEach(item => {
+                if (typeof item === 'object' && item !== null) {
+                    Object.keys(item).forEach(k => keySet.add(k));
+                }
+            });
+            availableKeys = Array.from(keySet);
+            visibleColumns = availableKeys.filter(k => k.toLowerCase() !== 'id'); // Hide ID by default for cleaner table
+            if (visibleColumns.length === 0) visibleColumns = [...availableKeys];
+            
+            // Default selected fields for generated text report
+            const preferredFields = ['codEquipamento', 'tipoEquipamento', 'descricao', 'endereco', 'status', 'instrutor'];
+            selectedTextFields = availableKeys.filter(k => preferredFields.includes(k));
+            if (selectedTextFields.length === 0) selectedTextFields = availableKeys.slice(0, 4);
+
+            // Reset filters and grouping
+            activeFilters = [];
+            sheetGroupBy = '';
+            collapsedGroups.clear();
+            document.getElementById('globalSearch').value = '';
+            
+            buildColumnPills();
+            buildGroupByDropdown();
+            buildTextFieldPills();
+            buildSheetGroupBy();
+            applyFilters();
+        }
+
+        function buildColumnPills() {
+            const container = document.getElementById('columnTogglePills');
+            container.innerHTML = '';
+
+            availableKeys.forEach(key => {
+                const label = document.createElement('label');
+                label.className = 'inline-flex items-center gap-1.5 px-2 py-0.5 rounded bg-white border border-slate-200 text-slate-700 cursor-pointer hover:bg-slate-100 transition';
+                
+                const checked = visibleColumns.includes(key) ? 'checked' : '';
+                label.innerHTML = `
+                    <input type="checkbox" value="${key}" ${checked} onchange="toggleColumn('${key}')" class="rounded border-slate-300 text-emerald-600 focus:ring-emerald-500">
+                    <span class="font-medium">${key}</span>
+                `;
+                container.appendChild(label);
+            });
+        }
+
+        function toggleColumn(key) {
+            if (visibleColumns.includes(key)) {
+                visibleColumns = visibleColumns.filter(c => c !== key);
+            } else {
+                visibleColumns.push(key);
+            }
+            renderTable();
+        }
+
+        function buildGroupByDropdown() {
+            const select = document.getElementById('groupBySelect');
+            select.innerHTML = '';
+            
+            // Priority default selection
+            let defaultKey = availableKeys.find(k => ['supervisor', 'status', 'regAdm', 'tipoEquipamento', 'fiscalSEDET'].includes(k)) || availableKeys[0];
+
+            availableKeys.forEach(key => {
+                const opt = document.createElement('option');
+                opt.value = key;
+                opt.textContent = key.charAt(0).toUpperCase() + key.slice(1);
+                if (key === defaultKey) opt.selected = true;
+                select.appendChild(opt);
+            });
+        }
+
+        /**
+         * Builds the sheet grouping dropdown (separate from message grouping)
+         */
+        function buildSheetGroupBy() {
+            const select = document.getElementById('sheetGroupBySelect');
+            if (!select) return;
+            
+            const currentVal = select.value;
+            select.innerHTML = '<option value="">(Sem agrupamento)</option>';
+
+            availableKeys.forEach(key => {
+                const opt = document.createElement('option');
+                opt.value = key;
+                opt.textContent = key.charAt(0).toUpperCase() + key.slice(1);
+                select.appendChild(opt);
+            });
+
+            // Restore previous selection if still valid
+            if (currentVal && availableKeys.includes(currentVal)) {
+                select.value = currentVal;
+                sheetGroupBy = currentVal;
+            } else {
+                sheetGroupBy = '';
+            }
+        }
+
+        function onSheetGroupByChange() {
+            sheetGroupBy = document.getElementById('sheetGroupBySelect').value;
+            collapsedGroups.clear();
+            renderTable();
+        }
+
+        function toggleSheetGroup(groupName) {
+            if (collapsedGroups.has(groupName)) {
+                collapsedGroups.delete(groupName);
+            } else {
+                collapsedGroups.add(groupName);
+            }
+            renderTable();
+        }
+
+        function buildTextFieldPills() {
+            const container = document.getElementById('textFieldPills');
+            container.innerHTML = '';
+
+            availableKeys.forEach(key => {
+                const isSelected = selectedTextFields.includes(key);
+                const pill = document.createElement('button');
+                pill.type = 'button';
+                pill.className = `px-2 py-1 rounded text-[11px] font-medium transition flex items-center gap-1 border ${
+                    isSelected ? 'bg-emerald-100 border-emerald-300 text-emerald-800' : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-100'
+                }`;
+                pill.innerHTML = `
+                    <i class="fa-solid ${isSelected ? 'fa-check' : 'fa-plus'} text-[10px]"></i>
+                    ${key}
+                `;
+                pill.onclick = () => {
+                    if (selectedTextFields.includes(key)) {
+                        selectedTextFields = selectedTextFields.filter(k => k !== key);
+                    } else {
+                        selectedTextFields.push(key);
+                    }
+                    buildTextFieldPills();
+                    generateFormattedText();
+                };
+                container.appendChild(pill);
+            });
+        }
+
+        function addFilterRow() {
+            document.getElementById('noFiltersText').classList.add('hidden');
+            const container = document.getElementById('filterContainer');
+
+            const filterId = Date.now();
+            const filterRow = document.createElement('div');
+            filterRow.id = `filter-row-${filterId}`;
+            filterRow.className = 'flex items-center gap-1.5 bg-slate-100 p-1.5 rounded-lg border border-slate-200 animate-in fade-in text-xs';
+
+            let keyOptions = availableKeys.map(k => `<option value="${k}">${k}</option>`).join('');
+
+            filterRow.innerHTML = `
+                <select id="key-${filterId}" onchange="updateFilterValues('${filterId}')" class="bg-white border border-slate-300 rounded px-2 py-1 outline-none focus:ring-1 focus:ring-emerald-500">
+                    ${keyOptions}
+                </select>
+                <select id="op-${filterId}" onchange="applyFilters()" class="bg-white border border-slate-300 rounded px-2 py-1 outline-none focus:ring-1 focus:ring-emerald-500">
+                    <option value="eq">é igual a</option>
+                    <option value="contains">contém</option>
+                    <option value="neq">é diferente de</option>
+                </select>
+                <select id="val-${filterId}" onchange="applyFilters()" class="bg-white border border-slate-300 rounded px-2 py-1 outline-none focus:ring-1 focus:ring-emerald-500 max-w-[180px]">
+                    <!-- Populated dynamically based on unique values -->
+                </select>
+                <button onclick="removeFilterRow('${filterId}')" class="text-slate-400 hover:text-rose-600 px-1">
+                    <i class="fa-solid fa-circle-xmark"></i>
+                </button>
+            `;
+
+            container.appendChild(filterRow);
+            updateFilterValues(filterId);
+        }
+
+        function updateFilterValues(filterId) {
+            const keySelect = document.getElementById(`key-${filterId}`);
+            const valSelect = document.getElementById(`val-${filterId}`);
+            if (!keySelect || !valSelect) return;
+
+            const selectedKey = keySelect.value;
+            // Extract unique values for selected key, unpacking arrays if present
+            const uniqueValSet = new Set();
+            rawData.forEach(item => {
+                const rawV = item[selectedKey];
+                if (Array.isArray(rawV)) {
+                    rawV.forEach(subV => uniqueValSet.add(subV));
+                } else if (rawV !== undefined && rawV !== null && rawV !== 'null') {
+                    uniqueValSet.add(String(rawV));
+                }
+            });
+
+            const uniqueVals = Array.from(uniqueValSet).sort();
+
+            valSelect.innerHTML = `<option value="__ALL__">(Todos)</option>` + 
+                uniqueVals.map(v => `<option value="${v}">${v}</option>`).join('');
+
+            applyFilters();
+        }
+
+        function removeFilterRow(filterId) {
+            const row = document.getElementById(`filter-row-${filterId}`);
+            if (row) row.remove();
+            
+            const container = document.getElementById('filterContainer');
+            if (container.children.length <= 1) {
+                document.getElementById('noFiltersText').classList.remove('hidden');
+            }
+            applyFilters();
+        }
+
+        function applyFilters() {
+            const globalQuery = document.getElementById('globalSearch').value.toLowerCase().trim();
+
+            const filterRows = document.querySelectorAll('[id^="filter-row-"]');
+            const activeFilterRules = [];
+
+            filterRows.forEach(row => {
+                const id = row.id.replace('filter-row-', '');
+                const key = document.getElementById(`key-${id}`)?.value;
+                const op = document.getElementById(`op-${id}`)?.value;
+                const val = document.getElementById(`val-${id}`)?.value;
+
+                if (key && val && val !== '__ALL__') {
+                    activeFilterRules.push({ key, op, val });
+                }
+            });
+
+            filteredData = rawData.filter(item => {
+                // Global search match
+                if (globalQuery) {
+                    const matchesGlobal = Object.values(item).some(val => {
+                        const formatted = formatVal(val).toLowerCase();
+                        return formatted.includes(globalQuery);
+                    });
+                    if (!matchesGlobal) return false;
+                }
+
+                // Dynamic filters match
+                for (let rule of activeFilterRules) {
+                    const rawVal = item[rule.key];
+                    const itemValStr = formatVal(rawVal).toLowerCase();
+                    const filterValStr = String(rule.val).toLowerCase();
+
+                    if (rule.op === 'eq') {
+                        if (Array.isArray(rawVal)) {
+                            if (!rawVal.some(v => String(v).toLowerCase() === filterValStr)) return false;
+                        } else if (itemValStr !== filterValStr) return false;
+                    }
+                    if (rule.op === 'neq') {
+                        if (Array.isArray(rawVal)) {
+                            if (rawVal.some(v => String(v).toLowerCase() === filterValStr)) return false;
+                        } else if (itemValStr === filterValStr) return false;
+                    }
+                    if (rule.op === 'contains') {
+                        if (!itemValStr.includes(filterValStr)) return false;
+                    }
+                }
+
+                return true;
+            });
+
+            // Handle Sorting
+            if (currentSort.key) {
+                filteredData.sort((a, b) => {
+                    let valA = formatVal(a[currentSort.key]);
+                    let valB = formatVal(b[currentSort.key]);
+                    if (valA < valB) return currentSort.asc ? -1 : 1;
+                    if (valA > valB) return currentSort.asc ? 1 : -1;
+                    return 0;
+                });
+            }
+
+            document.getElementById('totalCount').textContent = rawData.length;
+            document.getElementById('filteredCount').textContent = filteredData.length;
+
+            renderTable();
+            generateFormattedText();
+        }
+
+        // --- DRAG & DROP: Column Reorder ---
+
+        function handleColDragStart(e, colIdx) {
+            draggedColIndex = colIdx;
+            e.dataTransfer.effectAllowed = 'move';
+            e.target.style.opacity = '0.4';
+        }
+
+        function handleColDragOver(e) {
+            e.preventDefault();
+            e.dataTransfer.dropEffect = 'move';
+        }
+
+        function handleColDragEnter(e) {
+            e.preventDefault();
+            const th = e.target.closest('th[draggable]');
+            if (th) th.classList.add('drag-over');
+        }
+
+        function handleColDragLeave(e) {
+            const th = e.target.closest('th[draggable]');
+            if (th) th.classList.remove('drag-over');
+        }
+
+        function handleColDrop(e, targetIdx) {
+            e.preventDefault();
+            const th = e.target.closest('th[draggable]');
+            if (th) th.classList.remove('drag-over');
+
+            if (draggedColIndex === null || draggedColIndex === targetIdx) return;
+
+            // Move column from draggedColIndex to targetIdx
+            const draggedCol = visibleColumns.splice(draggedColIndex, 1)[0];
+            visibleColumns.splice(targetIdx, 0, draggedCol);
+
+            draggedColIndex = null;
+            renderTable();
+        }
+
+        function handleColDragEnd(e) {
+            e.target.style.opacity = '1';
+            document.querySelectorAll('.sheets-table th.drag-over').forEach(th => th.classList.remove('drag-over'));
+            draggedColIndex = null;
+        }
+
+        // --- TABLE RENDERING ---
+
+        function renderTable() {
+            const theadRow = document.getElementById('tableHeader');
+            const tbody = document.getElementById('tableBody');
+
+            // If no data is loaded at all, show empty state
+            if (rawData.length === 0) {
+                renderEmptyState();
+                return;
+            }
+
+            // Build header with drag & drop support
+            let headerHTML = `<th class="w-12 text-center bg-slate-100 text-slate-500 font-semibold p-2 sticky left-0 z-30 border-r border-b border-slate-300">#</th>`;
+            
+            visibleColumns.forEach((col, colIdx) => {
+                const isSorted = currentSort.key === col;
+                const sortIcon = isSorted ? (currentSort.asc ? 'fa-sort-up text-emerald-600' : 'fa-sort-down text-emerald-600') : 'fa-sort text-slate-300 hover:text-slate-500';
+                
+                headerHTML += `
+                    <th draggable="true" 
+                        data-col-index="${colIdx}"
+                        ondragstart="handleColDragStart(event, ${colIdx})"
+                        ondragover="handleColDragOver(event)"
+                        ondragenter="handleColDragEnter(event)"
+                        ondragleave="handleColDragLeave(event)"
+                        ondrop="handleColDrop(event, ${colIdx})"
+                        ondragend="handleColDragEnd(event)"
+                        onclick="sortTable('${col}')" 
+                        class="p-2.5 font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 cursor-pointer transition select-none whitespace-nowrap min-w-[130px]">
+                        <div class="flex items-center justify-between gap-2">
+                            <span class="flex items-center gap-1.5">
+                                <i class="fa-solid fa-grip-vertical text-slate-300 text-[10px]" style="cursor:grab"></i>
+                                ${col}
+                            </span>
+                            <i class="fa-solid ${sortIcon} text-xs"></i>
+                        </div>
+                    </th>
+                `;
+            });
+            theadRow.innerHTML = headerHTML;
+
+            // Empty filtered data
+            if (filteredData.length === 0) {
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="${visibleColumns.length + 1}" class="p-8 text-center text-slate-400 font-sans italic">
+                            Nenhum registro encontrado para os filtros selecionados.
+                        </td>
+                    </tr>
+                `;
+                updateGroupCountBadge(0);
+                return;
+            }
+
+            let bodyHTML = '';
+
+            if (sheetGroupBy && sheetGroupBy !== '') {
+                // --- GROUPED RENDERING ---
+                const groups = {};
+                const groupOrder = [];
+
+                filteredData.forEach(item => {
+                    const rawVal = item[sheetGroupBy];
+                    let groupNames = [];
+
+                    if (Array.isArray(rawVal)) {
+                        groupNames = rawVal.length > 0 ? rawVal.map(v => formatVal(v)) : ['Não Especificado'];
+                    } else {
+                        groupNames = [formatVal(rawVal)];
+                    }
+
+                    groupNames.forEach(gName => {
+                        if (!groups[gName]) {
+                            groups[gName] = [];
+                            groupOrder.push(gName);
+                        }
+                        groups[gName].push(item);
+                    });
+                });
+
+                groupOrder.sort();
+                updateGroupCountBadge(groupOrder.length);
+                let globalIdx = 0;
+
+                groupOrder.forEach(groupName => {
+                    const items = groups[groupName];
+                    const isCollapsed = collapsedGroups.has(groupName);
+                    const chevron = isCollapsed ? 'fa-chevron-right' : 'fa-chevron-down';
+                    const escapedName = groupName.replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+
+                    bodyHTML += `
+                        <tr class="group-header-row" onclick="toggleSheetGroup('${escapedName}')">
+                            <td colspan="${visibleColumns.length + 1}">
+                                <div class="flex items-center gap-2">
+                                    <i class="fa-solid ${chevron} text-emerald-600 text-[10px] transition-transform"></i>
+                                    <span class="text-emerald-800 font-bold text-xs uppercase tracking-wide">${sheetGroupBy}:</span>
+                                    <span class="text-emerald-700 font-semibold">${groupName}</span>
+                                    <span class="bg-emerald-100 text-emerald-700 text-[10px] px-2 py-0.5 rounded-full font-semibold ml-1">${items.length}</span>
+                                </div>
+                            </td>
+                        </tr>
+                    `;
+
+                    if (!isCollapsed) {
+                        items.forEach(row => {
+                            globalIdx++;
+                            bodyHTML += `<tr class="hover:bg-slate-50 transition">`;
+                            bodyHTML += `<td class="text-center text-slate-400 bg-slate-50 font-sans text-[11px] p-2 sticky left-0 z-10 border-r font-medium">${globalIdx}</td>`;
+
+                            visibleColumns.forEach(col => {
+                                const cellVal = formatVal(row[col]);
+                                bodyHTML += `<td class="p-2 whitespace-nowrap overflow-hidden text-ellipsis max-w-[280px]" title="${cellVal}">${cellVal}</td>`;
+                            });
+                            bodyHTML += `</tr>`;
+                        });
+                    } else {
+                        globalIdx += items.length;
+                    }
+                });
+            } else {
+                // --- UNGROUPED (NORMAL) RENDERING ---
+                updateGroupCountBadge(0);
+
+                filteredData.forEach((row, idx) => {
+                    bodyHTML += `<tr class="hover:bg-slate-50 transition">`;
+                    bodyHTML += `<td class="text-center text-slate-400 bg-slate-50 font-sans text-[11px] p-2 sticky left-0 z-10 border-r font-medium">${idx + 1}</td>`;
+
+                    visibleColumns.forEach(col => {
+                        const cellVal = formatVal(row[col]);
+                        bodyHTML += `<td class="p-2 whitespace-nowrap overflow-hidden text-ellipsis max-w-[280px]" title="${cellVal}">${cellVal}</td>`;
+                    });
+                    bodyHTML += `</tr>`;
+                });
+            }
+
+            tbody.innerHTML = bodyHTML;
+        }
+
+        function updateGroupCountBadge(count) {
+            const badge = document.getElementById('groupCountBadge');
+            if (!badge) return;
+            if (count > 0) {
+                badge.textContent = `${count} grupos`;
+                badge.classList.remove('hidden');
+            } else {
+                badge.classList.add('hidden');
+            }
+        }
+
+        function sortTable(key) {
+            if (currentSort.key === key) {
+                currentSort.asc = !currentSort.asc;
+            } else {
+                currentSort.key = key;
+                currentSort.asc = true;
+            }
+            applyFilters();
+        }
+
+        function generateFormattedText() {
+            const groupKey = document.getElementById('groupBySelect').value;
+            const style = document.getElementById('textStyleSelect').value;
+            const container = document.getElementById('groupedOutputsContainer');
+            const combinedTextarea = document.getElementById('combinedTextarea');
+
+            if (!groupKey || filteredData.length === 0) {
+                container.innerHTML = `
+                    <div class="bg-white rounded-xl p-8 border border-slate-200 text-center text-slate-400">
+                        Nenhum dado disponível para gerar relatório.
+                    </div>
+                `;
+                combinedTextarea.value = '';
+                return;
+            }
+
+            // Group items by selected groupKey (unpacking array if groupKey is an array field like 'instrutor')
+            const groups = {};
+            filteredData.forEach(item => {
+                const groupRaw = item[groupKey];
+                if (Array.isArray(groupRaw)) {
+                    if (groupRaw.length === 0) {
+                        const gName = 'Não Especificado';
+                        if (!groups[gName]) groups[gName] = [];
+                        groups[gName].push(item);
+                    } else {
+                        groupRaw.forEach(subG => {
+                            const gName = formatVal(subG);
+                            if (!groups[gName]) groups[gName] = [];
+                            groups[gName].push(item);
+                        });
+                    }
+                } else {
+                    const gName = formatVal(groupRaw);
+                    if (!groups[gName]) groups[gName] = [];
+                    groups[gName].push(item);
+                }
+            });
+
+            container.innerHTML = '';
+            let fullCombinedText = '';
+
+            Object.keys(groups).sort().forEach(groupName => {
+                const items = groups[groupName];
+                let textLines = [];
+                
+                if (style === 'emoji') {
+                    textLines.push(`📋 *RELATÓRIO DE ${groupKey.toUpperCase()}: ${groupName.toUpperCase()}*`);
+                    textLines.push(`Total de registros: ${items.length}\n`);
+                } else if (style === 'bullet') {
+                    textLines.push(`--- ${groupKey.toUpperCase()}: ${groupName} (${items.length}) ---`);
+                } else {
+                    textLines.push(`[${groupName.toUpperCase()}]`);
+                }
+
+                items.forEach((item, index) => {
+                    const showLabels = document.getElementById('showFieldLabels')?.checked || false;
+                    
+                    let fieldsText = selectedTextFields.map(field => {
+                        const val = formatVal(item[field]);
+                        return showLabels ? `${field}: ${val}` : val;
+                    }).join(' | ');
+
+                    const itemNum = index + 1;
+
+                    if (style === 'emoji') {
+                        textLines.push(`🔹 *Equip: ${itemNum}* ${fieldsText}`);
+                    } else if (style === 'bullet') {
+                        textLines.push(`• *Equip: ${itemNum}* ${fieldsText}`);
+                    } else {
+                        textLines.push(`*Equip: ${itemNum}* ${fieldsText}`);
+                    }
+                });
+
+                const groupText = textLines.join('\n');
+                fullCombinedText += groupText + '\n\n===========================\n\n';
+
+                const groupCard = document.createElement('div');
+                groupCard.className = 'bg-white rounded-xl shadow-sm border border-slate-200 p-4 transition hover:shadow-md';
+                
+                const encodedText = encodeURIComponent(groupText);
+                const whatsappUrl = `https://api.whatsapp.com/send?text=${encodedText}`;
+
+                groupCard.innerHTML = `
+                    <div class="flex items-center justify-between pb-3 border-b border-slate-100 mb-3">
+                        <div class="flex items-center gap-2">
+                            <span class="w-2.5 h-2.5 rounded-full bg-emerald-500"></span>
+                            <h4 class="font-bold text-slate-800 text-sm">${groupKey}: <span class="text-emerald-700">${groupName}</span></h4>
+                            <span class="bg-slate-100 text-slate-600 text-[11px] px-2 py-0.5 rounded-full font-semibold">${items.length}</span>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <a href="${whatsappUrl}" target="_blank" class="px-2.5 py-1 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 rounded text-xs font-semibold transition flex items-center gap-1">
+                                <i class="fa-brands fa-whatsapp text-emerald-600"></i> WhatsApp
+                            </a>
+                            <button onclick="copyToClipboard(\`${escapeForScript(groupText)}\`, this)" class="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded text-xs font-semibold transition flex items-center gap-1">
+                                <i class="fa-regular fa-copy"></i> Copiar
+                            </button>
+                        </div>
+                    </div>
+                    <pre class="bg-slate-50 text-slate-800 p-3 rounded-lg font-mono text-xs whitespace-pre-wrap leading-relaxed border border-slate-200 max-h-60 overflow-y-auto sheet-scrollbar">${groupText}</pre>
+                `;
+
+                container.appendChild(groupCard);
+            });
+
+            combinedTextarea.value = fullCombinedText.trim();
+        }
+
+        function escapeForScript(str) {
+            return str.replace(/\\/g, '\\\\').replace(/`/g, '\\`').replace(/\$/g, '\\$');
+        }
+
+        function copyToClipboard(text, buttonEl) {
+            const textarea = document.createElement('textarea');
+            textarea.value = text;
+            document.body.appendChild(textarea);
+            textarea.select();
+            document.execCommand('copy');
+            document.body.removeChild(textarea);
+
+            if (buttonEl) {
+                const origHTML = buttonEl.innerHTML;
+                buttonEl.innerHTML = `<i class="fa-solid fa-check text-emerald-600"></i> Copiado!`;
+                buttonEl.classList.add('bg-emerald-100', 'text-emerald-800');
+                setTimeout(() => {
+                    buttonEl.innerHTML = origHTML;
+                    buttonEl.classList.remove('bg-emerald-100', 'text-emerald-800');
+                }, 1800);
+            }
+        }
+
+        function copyCombinedText() {
+            const text = document.getElementById('combinedTextarea').value;
+            if (!text) return;
+            copyToClipboard(text);
+            showToast('Relatório completo copiado para a área de transferência!');
+        }
+
+        function switchTab(tab) {
+            const sheetView = document.getElementById('sheetView');
+            const textView = document.getElementById('textView');
+            const tabSheetBtn = document.getElementById('tabSheetBtn');
+            const tabTextBtn = document.getElementById('tabTextBtn');
+
+            if (tab === 'sheet') {
+                sheetView.classList.remove('hidden');
+                sheetView.classList.add('flex');
+                textView.classList.add('hidden');
+                textView.classList.remove('flex');
+
+                tabSheetBtn.className = 'px-4 py-1.5 text-xs font-semibold rounded-md transition shadow-sm bg-white text-slate-800';
+                tabTextBtn.className = 'px-4 py-1.5 text-xs font-semibold rounded-md transition text-slate-600 hover:text-slate-900';
+            } else {
+                sheetView.classList.add('hidden');
+                sheetView.classList.remove('flex');
+                textView.classList.remove('hidden');
+                textView.classList.add('flex');
+
+                tabTextBtn.className = 'px-4 py-1.5 text-xs font-semibold rounded-md transition shadow-sm bg-white text-slate-800';
+                tabSheetBtn.className = 'px-4 py-1.5 text-xs font-semibold rounded-md transition text-slate-600 hover:text-slate-900';
+                
+                generateFormattedText();
+            }
+        }
+
+        function openImportModal() {
+            document.getElementById('importModal').classList.remove('hidden');
+            document.getElementById('jsonError').classList.add('hidden');
+        }
+
+        function closeImportModal() {
+            document.getElementById('importModal').classList.add('hidden');
+        }
+
+        function processPastedJson() {
+            const text = document.getElementById('jsonPasteInput').value.trim();
+            const errDiv = document.getElementById('jsonError');
+            const errText = document.getElementById('jsonErrorText');
+
+            if (!text) {
+                errText.textContent = 'Por favor, cole o código JSON ou faça upload de um arquivo.';
+                errDiv.classList.remove('hidden');
+                return;
+            }
+
+            try {
+                let parsed = JSON.parse(text);
+                
+                // Check if JSON is wrapped inside an object (e.g. { "data": [...] } or { "items": [...] })
+                if (!Array.isArray(parsed) && typeof parsed === 'object') {
+                    const possibleArrayKey = Object.keys(parsed).find(k => Array.isArray(parsed[k]));
+                    if (possibleArrayKey) {
+                        parsed = parsed[possibleArrayKey];
+                    } else {
+                        throw new Error('O JSON precisa conter uma lista de itens [ { ... } ].');
+                    }
+                }
+
+                loadData(parsed);
+                closeImportModal();
+                showToast('JSON importado com sucesso!');
+            } catch (err) {
+                errText.textContent = 'Sintaxe JSON inválida: ' + err.message;
+                errDiv.classList.remove('hidden');
+            }
+        }
+
+        function handleFileSelect(evt) {
+            const file = evt.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                document.getElementById('jsonPasteInput').value = e.target.result;
+                processPastedJson();
+            };
+            reader.readAsText(file);
+        }
+
+        function showToast(msg, type = 'success') {
+            const toast = document.createElement('div');
+            const bgColor = type === 'error' ? 'bg-rose-600' : 'bg-slate-900';
+            const icon = type === 'error' ? 'fa-circle-exclamation text-rose-200' : 'fa-circle-check text-emerald-400';
+            toast.className = `fixed bottom-5 right-5 ${bgColor} text-white text-xs px-4 py-3 rounded-xl shadow-lg z-50 flex items-center gap-2 animate-bounce`;
+            toast.innerHTML = `<i class="fa-solid ${icon}"></i> ${msg}`;
+            document.body.appendChild(toast);
+            setTimeout(() => toast.remove(), 3500);
+        }
+    </script>
+
+</body>
+</html>
