@@ -219,8 +219,14 @@
                             <!-- Column checkboxes populated dynamically -->
                         </div>
                     </div>
-                    <div class="text-slate-500">
-                        <i class="fa-solid fa-info-circle mr-1"></i> Arraste os cabeçalhos para reordenar colunas
+                    <div class="flex items-center gap-3">
+                        <div class="text-slate-500">
+                            <i class="fa-solid fa-info-circle mr-1"></i> Arraste os cabeçalhos para reordenar colunas
+                        </div>
+                        <button onclick="downloadCSV()" class="inline-flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1.5 rounded-lg text-xs font-semibold transition shadow-sm whitespace-nowrap">
+                            <i class="fa-solid fa-file-csv"></i>
+                            <span>Baixar CSV</span>
+                        </button>
                     </div>
                 </div>
                 <!-- Grouping Dropdown -->
@@ -1401,6 +1407,66 @@
                 processPastedJson();
             };
             reader.readAsText(file);
+        }
+
+        /**
+         * Downloads the currently filtered data as a CSV file.
+         * Uses the visible columns in their current order.
+         * Includes BOM for proper UTF-8 handling in Excel.
+         */
+        function downloadCSV() {
+            if (!filteredData || filteredData.length === 0) {
+                showToast('Nenhum dado para exportar. Carregue dados primeiro.', 'error');
+                return;
+            }
+
+            const cols = visibleColumns.length > 0 ? visibleColumns : availableKeys;
+
+            // Helper to escape CSV cell values
+            const escapeCSV = (val) => {
+                const str = String(val);
+                // Wrap in quotes if contains comma, quote, newline, or semicolon
+                if (str.includes(',') || str.includes('"') || str.includes('\n') || str.includes(';')) {
+                    return '"' + str.replace(/"/g, '""') + '"';
+                }
+                return str;
+            };
+
+            const rows = [];
+
+            // Header row
+            rows.push(cols.map(col => escapeCSV(col)).join(','));
+
+            // Data rows
+            filteredData.forEach(item => {
+                const row = cols.map(col => {
+                    const val = formatVal(item[col], col);
+                    return escapeCSV(val);
+                });
+                rows.push(row.join(','));
+            });
+
+            // BOM + CSV content
+            const csvContent = '\uFEFF' + rows.join('\n');
+            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+
+            // Generate filename with current date
+            const now = new Date();
+            const dateStr = now.toISOString().slice(0, 10).replace(/-/g, '');
+            const timeStr = now.toTimeString().slice(0, 5).replace(':', '');
+            const filename = `equipamentos_renova_${dateStr}_${timeStr}.csv`;
+
+            // Create download link and trigger
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = filename;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            URL.revokeObjectURL(url);
+
+            showToast(`CSV exportado com ${filteredData.length} registros!`);
         }
 
         function showToast(msg, type = 'success') {
