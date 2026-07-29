@@ -1432,10 +1432,13 @@
                 return str;
             };
 
+            // Column header mapping (JSON key -> CSV header)
+            const headerMap = { 'id': 'page' };
+
             const rows = [];
 
-            // Header row
-            rows.push(cols.map(col => escapeCSV(col)).join(','));
+            // Header row (apply mapping)
+            rows.push(cols.map(col => escapeCSV(headerMap[col] || col)).join(','));
 
             // Data rows
             filteredData.forEach(item => {
