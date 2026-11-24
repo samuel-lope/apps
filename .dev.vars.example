@@ -1,0 +1,2 @@
+TOKEN=your_pix_api_bearer_token
+RENOVA_WEBHOOK_URL=https://n8n.samuellopes.com.br/webhook/your-webhook-id
