@@ -2,19 +2,28 @@ import { useState, type FormEvent } from 'react';
 import { Check, Copy, Loader2, Printer, QrCode } from 'lucide-react';
 import { formatCurrencyInput } from '../recibo/utils';
 
+type PixKeyTypeOption = '' | 'CPF' | 'CNPJ' | 'PHONE' | 'EMAIL' | 'EVP';
+type QrEclOption = 'Q' | 'H';
+
 interface PixResponse {
   pixCopiaECola: string;
   svgQrCode: string;
+  normalizedKey?: string;
+  keyType?: string;
   message?: string;
+  error?: string;
+  erro?: string;
 }
 
 export default function PixApp() {
   const [pixKey, setPixKey] = useState('');
+  const [pixKeyType, setPixKeyType] = useState<PixKeyTypeOption>('');
   const [amount, setAmount] = useState('');
   const [merchantName, setMerchantName] = useState('');
   const [merchantCity, setMerchantCity] = useState('');
   const [txid, setTxid] = useState('');
   const [description, setDescription] = useState('');
+  const [qrECL, setQrECL] = useState<QrEclOption>('Q');
 
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<PixResponse | null>(null);
@@ -35,12 +44,17 @@ export default function PixApp() {
       pixKey: pixKey.trim(),
       merchantName: merchantName.trim(),
       merchantCity: merchantCity.trim(),
-      amount: !Number.isNaN(numericAmount) && numericAmount > 0 ? numericAmount.toFixed(2) : '',
-      qrECL: 'Q',
+      qrECL,
       qrCellSize: 8,
       qrMargin: 10,
     };
 
+    if (pixKeyType) {
+      payload.pixKeyType = pixKeyType;
+    }
+    if (!Number.isNaN(numericAmount) && numericAmount > 0) {
+      payload.amount = Number(numericAmount.toFixed(2));
+    }
     if (txid.trim()) payload.txid = txid.trim();
     if (description.trim()) payload.description = description.trim();
 
@@ -54,15 +68,19 @@ export default function PixApp() {
 
       const data = (await response.json()) as Partial<PixResponse>;
       if (!response.ok) {
-        throw new Error(data.message || 'Erro ao gerar código PIX.');
+        throw new Error(data.message || data.error || data.erro || 'Erro ao gerar código PIX.');
       }
       if (!data.pixCopiaECola || !data.svgQrCode) {
-        throw new Error(data.message || 'A resposta da API não contém os dados esperados.');
+        throw new Error(
+          data.message || data.error || data.erro || 'A resposta da API não contém os dados esperados.',
+        );
       }
 
       setResult({
         pixCopiaECola: data.pixCopiaECola,
         svgQrCode: data.svgQrCode,
+        normalizedKey: data.normalizedKey,
+        keyType: data.keyType,
       });
     } catch (err) {
       setResult(null);
@@ -107,8 +125,8 @@ export default function PixApp() {
           onSubmit={handleSubmit}
           className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-5 sm:p-6 space-y-4"
         >
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div className="sm:col-span-2">
               <label className={labelClass} htmlFor="pixKey">
                 Chave PIX*
               </label>
@@ -123,6 +141,27 @@ export default function PixApp() {
               />
             </div>
             <div>
+              <label className={labelClass} htmlFor="pixKeyType">
+                Tipo de Chave
+              </label>
+              <select
+                id="pixKeyType"
+                value={pixKeyType}
+                onChange={(e) => setPixKeyType(e.target.value as PixKeyTypeOption)}
+                className={inputClass}
+              >
+                <option value="">Detectar automaticamente</option>
+                <option value="CPF">CPF</option>
+                <option value="CNPJ">CNPJ</option>
+                <option value="PHONE">Telefone (PHONE)</option>
+                <option value="EMAIL">E-mail (EMAIL)</option>
+                <option value="EVP">Chave Aleatória (EVP)</option>
+              </select>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div>
               <label className={labelClass} htmlFor="pixAmount">
                 Valor (R$)
               </label>
@@ -136,9 +175,6 @@ export default function PixApp() {
                 className={inputClass}
               />
             </div>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className={labelClass} htmlFor="merchantName">
                 Nome do Recebedor*
@@ -147,7 +183,8 @@ export default function PixApp() {
                 id="merchantName"
                 type="text"
                 required
-                placeholder="Nome completo ou empresa"
+                maxLength={25}
+                placeholder="Nome completo ou empresa (máx. 25)"
                 value={merchantName}
                 onChange={(e) => setMerchantName(e.target.value)}
                 className={inputClass}
@@ -161,7 +198,8 @@ export default function PixApp() {
                 id="merchantCity"
                 type="text"
                 required
-                placeholder="Ex: Brasilia"
+                maxLength={15}
+                placeholder="Ex: Brasilia (máx. 15)"
                 value={merchantCity}
                 onChange={(e) => setMerchantCity(e.target.value)}
                 className={inputClass}
@@ -169,7 +207,7 @@ export default function PixApp() {
             </div>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div>
               <label className={labelClass} htmlFor="txid">
                 Identificador (Opcional)
@@ -177,7 +215,8 @@ export default function PixApp() {
               <input
                 id="txid"
                 type="text"
-                placeholder="ID da transação (alfanumérico)"
+                maxLength={25}
+                placeholder="ID da transação (máx. 25)"
                 value={txid}
                 onChange={(e) => setTxid(e.target.value.replace(/[^a-zA-Z0-9]/g, ''))}
                 className={inputClass}
@@ -195,6 +234,20 @@ export default function PixApp() {
                 onChange={(e) => setDescription(e.target.value)}
                 className={inputClass}
               />
+            </div>
+            <div>
+              <label className={labelClass} htmlFor="qrECL">
+                Correção de Erro QR
+              </label>
+              <select
+                id="qrECL"
+                value={qrECL}
+                onChange={(e) => setQrECL(e.target.value as QrEclOption)}
+                className={inputClass}
+              >
+                <option value="Q">Quartil (Q — Padrão)</option>
+                <option value="H">Alta (H)</option>
+              </select>
             </div>
           </div>
 
@@ -229,9 +282,21 @@ export default function PixApp() {
               </div>
 
               <div className="flex-1 w-full space-y-3">
-                <h2 className="text-base font-semibold text-slate-900 dark:text-white">
-                  PIX Copia e Cola
-                </h2>
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <h2 className="text-base font-semibold text-slate-900 dark:text-white">
+                    PIX Copia e Cola
+                  </h2>
+                  {result.keyType && (
+                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-blue-50 dark:bg-blue-950 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800">
+                      Tipo: {result.keyType}
+                    </span>
+                  )}
+                </div>
+                {result.normalizedKey && (
+                  <p className="text-xs text-slate-500 dark:text-slate-400 break-all">
+                    Chave normalizada: <span className="font-mono">{result.normalizedKey}</span>
+                  </p>
+                )}
                 <textarea
                   readOnly
                   rows={5}
@@ -257,7 +322,9 @@ export default function PixApp() {
           <img src="/assets/logo-pix.svg" alt="Logo PIX" className="w-60 mb-8" />
           <img src={result.svgQrCode} alt="QR Code PIX" className="w-80 h-80 object-contain" />
           <p className="text-2xl font-bold mt-6">{merchantName}</p>
-          <p className="text-base text-slate-600 mt-2 break-all">Chave PIX: {pixKey}</p>
+          <p className="text-base text-slate-600 mt-2 break-all">
+            Chave PIX: {result.normalizedKey || pixKey}
+          </p>
           {amount && <p className="text-xl font-semibold mt-3">Valor: R$ {amount}</p>}
         </div>
       )}

@@ -1,12 +1,10 @@
 import { useState } from 'react';
-import { Eye, Printer, RotateCcw, X } from 'lucide-react';
+import { AlertTriangle, Eye, Loader2, Printer, RotateCcw, X } from 'lucide-react';
 import {
   formatCpfCnpj,
-  formatCurrencyDisplay,
   formatCurrencyInput,
   formatDateBr,
   getTodayLocalIso,
-  valorPorExtenso,
 } from './utils';
 
 interface ReciboFormState {
@@ -22,6 +20,20 @@ interface ReciboFormState {
   data: string;
   cidade: string;
   observacoes: string;
+}
+
+interface ReciboApiResponse {
+  reciboNum: string;
+  valor: string;
+  extenso: string;
+  cPagador: string | null;
+  pagadorValido: boolean;
+  cRecebedor: string | null;
+  recebedorValido: boolean;
+  dados?: Record<string, unknown>;
+  message?: string;
+  error?: string;
+  erro?: string;
 }
 
 const INITIAL_STATE = (): ReciboFormState => ({
@@ -50,28 +62,40 @@ const PAYMENT_METHODS = [
   'Outro',
 ];
 
-function ReceiptSheet({ data, receiptNumber }: { data: ReciboFormState; receiptNumber: string }) {
-  const valorFormatado = formatCurrencyDisplay(data.valor);
-  const extenso = valorPorExtenso(data.valor);
+function parseCurrencyToFloat(raw: string): number {
+  const normalized = raw.replace(/\./g, '').replace(',', '.').trim();
+  const parsed = parseFloat(normalized);
+  return Number.isFinite(parsed) ? Number(parsed.toFixed(2)) : NaN;
+}
+
+function ReceiptSheet({
+  data,
+  receipt,
+}: {
+  data: ReciboFormState;
+  receipt: ReciboApiResponse;
+}) {
   const dataFormatada = formatDateBr(data.data);
+  const cpfPagadorExibido = receipt.cPagador || data.cpfPagador;
+  const cpfRecebedorExibido = receipt.cRecebedor || data.cpfRecebedor;
 
   return (
     <div className="bg-white text-slate-900 p-8 border border-slate-200 rounded-xl shadow-xs print:shadow-none print:border-slate-300 print:p-6">
       <div className="flex items-center justify-between pb-3 mb-5 border-b-2 border-blue-600">
         <h2 className="text-2xl font-bold uppercase tracking-wide text-blue-600">Recibo</h2>
-        <span className="text-base font-mono text-slate-600">Nº {receiptNumber}</span>
+        <span className="text-base font-mono text-slate-600">Nº {receipt.reciboNum}</span>
       </div>
 
       <div className="text-2xl font-bold text-blue-600 text-center py-3.5 px-4 my-5 border-2 border-blue-600 rounded-lg bg-blue-50/40">
-        R$ {valorFormatado}
+        R$ {receipt.valor}
       </div>
 
       <div className="space-y-4 text-sm sm:text-base leading-relaxed">
         <p>
           Recebi de <strong>{data.nomePagador}</strong>
-          {data.cpfPagador ? `, CPF/CNPJ: ${data.cpfPagador}` : ''}
+          {cpfPagadorExibido ? `, CPF/CNPJ: ${cpfPagadorExibido}` : ''}
           {data.enderecoPagador ? `, residente em ${data.enderecoPagador}` : ''}, a quantia de{' '}
-          <strong>R$ {valorFormatado}</strong> ({extenso})
+          <strong>R$ {receipt.valor}</strong> ({receipt.extenso})
           {data.referente ? `, referente a ${data.referente}` : ''}, pago através de{' '}
           <strong>{data.formaPagamento}</strong>.
         </p>
@@ -79,7 +103,7 @@ function ReceiptSheet({ data, receiptNumber }: { data: ReciboFormState; receiptN
         <div className="pt-2 space-y-1 text-sm">
           <p className="font-semibold text-slate-700">Dados do Recebedor:</p>
           <p>Nome: {data.nomeRecebedor}</p>
-          {data.cpfRecebedor && <p>CPF/CNPJ: {data.cpfRecebedor}</p>}
+          {cpfRecebedorExibido && <p>CPF/CNPJ: {cpfRecebedorExibido}</p>}
           {data.enderecoRecebedor && <p>Endereço: {data.enderecoRecebedor}</p>}
         </div>
 
@@ -108,52 +132,120 @@ function ReceiptSheet({ data, receiptNumber }: { data: ReciboFormState; receiptN
 export default function ReciboApp() {
   const [form, setForm] = useState<ReciboFormState>(INITIAL_STATE);
   const [previewOpen, setPreviewOpen] = useState(false);
-  const [receiptNumber, setReceiptNumber] = useState(() => String(Date.now()).slice(-8));
+  const [apiReceipt, setApiReceipt] = useState<ReciboApiResponse | null>(null);
+  const [loading, setLoading] = useState(false);
   const [notice, setNotice] = useState<{ text: string; type: 'error' | 'success' } | null>(null);
 
   const showNotice = (text: string, type: 'error' | 'success') => {
     setNotice({ text, type });
-    window.setTimeout(() => setNotice(null), 3000);
+    window.setTimeout(() => setNotice(null), 4000);
   };
 
   const updateField = <K extends keyof ReciboFormState>(field: K, value: ReciboFormState[K]) => {
     setForm((prev) => ({ ...prev, [field]: value }));
   };
 
-  const validate = (): boolean => {
+  const validate = (): number | null => {
     if (!form.nomePagador.trim() || !form.nomeRecebedor.trim() || !form.valor.trim() || !form.data) {
       showNotice('Preencha todos os campos obrigatórios (*).', 'error');
-      return false;
+      return null;
     }
     if (!/^[0-9]+,[0-9]{2}$|^[0-9]+$/.test(form.valor.trim())) {
       showNotice('Informe um valor válido (ex: 100,00).', 'error');
-      return false;
+      return null;
     }
-    return true;
+    const numericValor = parseCurrencyToFloat(form.valor);
+    if (Number.isNaN(numericValor) || numericValor <= 0) {
+      showNotice('Informe um valor maior que zero.', 'error');
+      return null;
+    }
+    return numericValor;
   };
 
-  const handleOpenPreview = () => {
-    if (!validate()) return;
-    setReceiptNumber(String(Date.now()).slice(-8));
-    setPreviewOpen(true);
+  const generateReceipt = async (): Promise<ReciboApiResponse | null> => {
+    const numericValor = validate();
+    if (numericValor === null) return null;
+
+    const payload: Record<string, unknown> = {
+      nomePagador: form.nomePagador.trim(),
+      nomeRecebedor: form.nomeRecebedor.trim(),
+      valor: numericValor,
+      formaPagamento: form.formaPagamento,
+      data: form.data,
+    };
+
+    if (form.cpfPagador.trim()) payload.cpfPagador = form.cpfPagador.trim();
+    if (form.enderecoPagador.trim()) payload.enderecoPagador = form.enderecoPagador.trim();
+    if (form.cpfRecebedor.trim()) payload.cpfRecebedor = form.cpfRecebedor.trim();
+    if (form.enderecoRecebedor.trim()) payload.enderecoRecebedor = form.enderecoRecebedor.trim();
+    if (form.referente.trim()) payload.referente = form.referente.trim();
+    if (form.cidade.trim()) payload.cidade = form.cidade.trim();
+    if (form.observacoes.trim()) payload.observacoes = form.observacoes.trim();
+
+    setLoading(true);
+    try {
+      const response = await fetch('/api/recibo?objeto=1', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+
+      const data = (await response.json()) as Partial<ReciboApiResponse>;
+      if (!response.ok) {
+        throw new Error(data.message || data.erro || data.error || 'Erro ao gerar recibo.');
+      }
+      if (!data.reciboNum || !data.valor || !data.extenso) {
+        throw new Error('A resposta da API não contém os dados esperados do recibo.');
+      }
+
+      const generated: ReciboApiResponse = {
+        reciboNum: data.reciboNum,
+        valor: data.valor,
+        extenso: data.extenso,
+        cPagador: data.cPagador ?? null,
+        pagadorValido: Boolean(data.pagadorValido),
+        cRecebedor: data.cRecebedor ?? null,
+        recebedorValido: Boolean(data.recebedorValido),
+        dados: data.dados,
+      };
+
+      setApiReceipt(generated);
+      return generated;
+    } catch (err) {
+      showNotice(err instanceof Error ? err.message : 'Erro desconhecido ao gerar recibo.', 'error');
+      return null;
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const handlePrint = () => {
-    if (!validate()) return;
-    if (!previewOpen) {
-      setReceiptNumber(String(Date.now()).slice(-8));
+  const handleOpenPreview = async () => {
+    const generated = await generateReceipt();
+    if (generated) {
       setPreviewOpen(true);
-      window.setTimeout(() => window.print(), 50);
-    } else {
-      window.print();
     }
+  };
+
+  const handlePrint = async () => {
+    const generated = await generateReceipt();
+    if (!generated) return;
+    setPreviewOpen(true);
+    window.setTimeout(() => window.print(), 80);
   };
 
   const handleReset = () => {
     setForm(INITIAL_STATE());
+    setApiReceipt(null);
     setPreviewOpen(false);
     showNotice('Formulário limpo.', 'success');
   };
+
+  const hasInvalidPagadorDoc = Boolean(
+    form.cpfPagador.trim() && apiReceipt && !apiReceipt.pagadorValido,
+  );
+  const hasInvalidRecebedorDoc = Boolean(
+    form.cpfRecebedor.trim() && apiReceipt && !apiReceipt.recebedorValido,
+  );
 
   const inputClass =
     'w-full px-3 py-2 text-sm rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-500';
@@ -166,7 +258,7 @@ export default function ReciboApp() {
           <div>
             <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Gerador de Recibos</h1>
             <p className="text-sm text-slate-500 dark:text-slate-400">
-              Preencha os dados para visualizar, imprimir ou salvar em PDF.
+              Preencha os dados para gerar, validar documentos, visualizar e imprimir em PDF.
             </p>
           </div>
           {notice && (
@@ -183,7 +275,7 @@ export default function ReciboApp() {
         <form
           onSubmit={(e) => {
             e.preventDefault();
-            handleOpenPreview();
+            void handleOpenPreview();
           }}
           className="space-y-6"
         >
@@ -371,29 +463,34 @@ export default function ReciboApp() {
           <div className="flex flex-wrap justify-end gap-3">
             <button
               type="button"
+              disabled={loading}
               onClick={handleReset}
-              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 text-sm font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer"
+              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 text-sm font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 disabled:opacity-60 cursor-pointer"
             >
               <RotateCcw className="w-4 h-4" /> Limpar
             </button>
             <button
               type="submit"
-              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium cursor-pointer"
+              disabled={loading}
+              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 disabled:opacity-60 text-white text-sm font-medium cursor-pointer"
             >
-              <Eye className="w-4 h-4" /> Pré-visualizar
+              {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Eye className="w-4 h-4" />}
+              {loading ? 'Gerando...' : 'Pré-visualizar'}
             </button>
             <button
               type="button"
-              onClick={handlePrint}
-              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-medium cursor-pointer"
+              disabled={loading}
+              onClick={() => void handlePrint()}
+              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 disabled:opacity-60 text-white text-sm font-medium cursor-pointer"
             >
-              <Printer className="w-4 h-4" /> Imprimir / Salvar PDF
+              {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Printer className="w-4 h-4" />}
+              Imprimir / Salvar PDF
             </button>
           </div>
         </form>
       </div>
 
-      {previewOpen && (
+      {previewOpen && apiReceipt && (
         <div
           className="fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-xs flex items-center justify-center p-4 print:static print:bg-transparent print:p-0 print:block"
           onClick={() => setPreviewOpen(false)}
@@ -415,7 +512,21 @@ export default function ReciboApp() {
               </button>
             </div>
 
-            <ReceiptSheet data={form} receiptNumber={receiptNumber} />
+            {(hasInvalidPagadorDoc || hasInvalidRecebedorDoc) && (
+              <div className="print:hidden flex items-start gap-2.5 p-3 rounded-xl bg-amber-50 dark:bg-amber-950/50 border border-amber-200 dark:border-amber-900 text-xs text-amber-800 dark:text-amber-200">
+                <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
+                <div>
+                  {hasInvalidPagadorDoc && (
+                    <p>O CPF/CNPJ informado para o pagador não foi validado pela API.</p>
+                  )}
+                  {hasInvalidRecebedorDoc && (
+                    <p>O CPF/CNPJ informado para o recebedor não foi validado pela API.</p>
+                  )}
+                </div>
+              </div>
+            )}
+
+            <ReceiptSheet data={form} receipt={apiReceipt} />
 
             <div className="print:hidden flex justify-end gap-3 pt-2">
               <button

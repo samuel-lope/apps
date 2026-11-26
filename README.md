@@ -8,7 +8,12 @@ Portal web em **React + TypeScript + Vite + Tailwind CSS v4**, configurado para 
 - **SPA Fallback**: `assets.not_found_handling = "single-page-application"` no `wrangler.jsonc`.
 - **Worker Backend (`worker/index.ts`)**: acionado apenas para `/api/*` (`assets.run_worker_first = ["/api/*"]`):
   - `GET /api/health`
-  - `POST /api/pix` (usa secret `TOKEN`)
+  - `GET /api/version` (proxy público para `GET /versao`)
+  - `POST /api/pix` (proxy para `POST /v1/codepix` — usa secret `APIS_ACCES_TOKEN`)
+  - `GET | POST /api/recibo` (proxy para `GET | POST /v1/recibo` — usa secret `APIS_ACCES_TOKEN`)
+  - `POST /api/codegen` (proxy para `POST /v1/codegen` — usa secret `APIS_ACCES_TOKEN`)
+  - `GET /api/cpf/validate` / `GET /api/cpf/generate` (proxy para `/v1/validaCPF` e `/v1/geraCPF` — usa secret `APIS_ACCES_TOKEN`)
+  - `GET /api/cnpj/validate` / `GET /api/cnpj/generate` (proxy para `/v1/validaCNPJ` e `/v1/geraCNPJ` — usa secret `APIS_ACCES_TOKEN`)
   - `POST /api/notion/database` (proxy CORS-free para Notion API)
   - `GET | POST /api/renova/sync` (usa secret `RENOVA_WEBHOOK_URL`)
 
@@ -61,7 +66,7 @@ npm run preview      # Preview local do build de produção
 Para configurar segredos e publicar no Cloudflare Workers:
 
 ```bash
-npx wrangler secret put TOKEN
+npx wrangler secret put APIS_ACCES_TOKEN
 npx wrangler secret put RENOVA_WEBHOOK_URL
 npm run deploy
 ```

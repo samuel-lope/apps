@@ -1,2 +1,4 @@
-TOKEN=your_pix_api_bearer_token
+APIS_ACCES_TOKEN=slapi_your_bearer_token
+# Opcional — padrão: https://api.samuellopes.com.br
+# API_BASE_URL=https://api.samuellopes.com.br
 RENOVA_WEBHOOK_URL=https://n8n.samuellopes.com.br/webhook/your-webhook-id

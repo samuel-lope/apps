@@ -1,13 +1,14 @@
 import { useEffect, useRef, useState } from 'react';
 import QRCode from 'qrcode';
-import { Check, Copy, RefreshCw } from 'lucide-react';
-import {
-  generateBase58,
-  generateCustom,
-  generateHex,
-  generatePassword,
-  type GeneratorType,
-} from './utils';
+import { Check, Copy, Loader2, RefreshCw } from 'lucide-react';
+import type { GeneratorType } from './utils';
+
+interface CodegenApiResponse {
+  cod?: string;
+  message?: string;
+  error?: string;
+  erro?: string;
+}
 
 const TYPE_OPTIONS: { value: GeneratorType; label: string }[] = [
   { value: 'hex', label: 'Hexadecimal' },
@@ -34,6 +35,7 @@ export default function CodegenApp() {
 
   const [seed, setSeed] = useState('');
   const [result, setResult] = useState('');
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
 
@@ -55,38 +57,76 @@ export default function CodegenApp() {
     }).catch((err) => console.error('QR generation failed:', err));
   }, [result]);
 
-  const handleGenerate = () => {
+  const handleGenerate = async () => {
     setError(null);
-    try {
-      let value = '';
-      switch (type) {
-        case 'hex':
-          value = generateHex(bitLength, seed);
-          break;
-        case 'base58':
-          value = generateBase58(bitLength, seed);
-          break;
-        case 'custom':
-          value = generateCustom(customChars, customFormat, seed);
-          break;
-        case 'password':
-          value = generatePassword(
-            {
-              length: passwordLength,
-              includeUppercase,
-              includeLowercase,
-              includeNumbers,
-              includeSpecialChars,
-              includeCustom,
-              customChars: passwordCustomChars,
-            },
-            seed,
-          );
-          break;
+
+    const query = new URLSearchParams();
+    const body: Record<string, string> = {};
+    if (seed.trim()) {
+      body.seed = seed.trim();
+    }
+
+    if (type === 'hex' || type === 'base58') {
+      query.set('modo', type);
+      query.set('bits', String(bitLength));
+    } else if (type === 'custom') {
+      if (!customChars.trim() || !customFormat.trim()) {
+        setError('Preencha os campos de caracteres permitidos e formato.');
+        return;
       }
-      setResult(value);
+      query.set('modo', 'personal');
+      body.formato = customFormat;
+      body.caracteres = customChars;
+    } else if (type === 'password') {
+      if (!Number.isInteger(passwordLength) || passwordLength < 1 || passwordLength > 256) {
+        setError('A quantidade de caracteres deve ser entre 1 e 256.');
+        return;
+      }
+
+      const flags: string[] = [];
+      if (includeUppercase) flags.push('lma');
+      if (includeLowercase) flags.push('lmi');
+      if (includeNumbers) flags.push('n');
+      if (includeSpecialChars) flags.push('ce');
+      if (includeCustom) {
+        if (!passwordCustomChars) {
+          setError('Informe os caracteres personalizados desejados.');
+          return;
+        }
+        flags.push('cp');
+      }
+
+      if (flags.length === 0) {
+        setError('Selecione pelo menos um tipo de caractere para gerar a senha.');
+        return;
+      }
+
+      query.set('modo', 'senha');
+      query.set('qtdcarac', String(passwordLength));
+      query.set('tipocarac', flags.join(','));
+      if (includeCustom && passwordCustomChars) {
+        query.set('carp', passwordCustomChars);
+      }
+    }
+
+    setLoading(true);
+    try {
+      const response = await fetch(`/api/codegen?${query.toString()}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+
+      const data = (await response.json()) as CodegenApiResponse;
+      if (!response.ok || !data.cod) {
+        throw new Error(data.message || data.error || data.erro || 'Erro ao gerar código.');
+      }
+
+      setResult(data.cod);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Erro ao gerar código.');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -112,7 +152,7 @@ export default function CodegenApp() {
             Gerador Avançado de Códigos
           </h1>
           <p className="text-xs text-slate-500 dark:text-slate-400">
-            Entropia via Web Crypto API + geração instantânea de QR Code.
+            Geração via API SamuelLopes + visualização instantânea em QR Code.
           </p>
         </div>
 
@@ -160,6 +200,7 @@ export default function CodegenApp() {
               </label>
               <input
                 type="text"
+                maxLength={256}
                 value={customChars}
                 onChange={(e) => setCustomChars(e.target.value)}
                 className={inputClass}
@@ -171,6 +212,7 @@ export default function CodegenApp() {
               </label>
               <input
                 type="text"
+                maxLength={256}
                 value={customFormat}
                 onChange={(e) => setCustomFormat(e.target.value)}
                 className={inputClass}
@@ -187,7 +229,8 @@ export default function CodegenApp() {
               </label>
               <input
                 type="number"
-                min={4}
+                min={1}
+                max={256}
                 value={passwordLength}
                 onChange={(e) => setPasswordLength(Number(e.target.value))}
                 className={inputClass}
@@ -240,6 +283,7 @@ export default function CodegenApp() {
             {includeCustom && (
               <input
                 type="text"
+                maxLength={256}
                 placeholder="Seus caracteres: !@#..."
                 value={passwordCustomChars}
                 onChange={(e) => setPasswordCustomChars(e.target.value)}
@@ -255,6 +299,7 @@ export default function CodegenApp() {
           </label>
           <input
             type="text"
+            maxLength={256}
             placeholder="Seed opcional..."
             value={seed}
             onChange={(e) => setSeed(e.target.value)}
@@ -275,10 +320,12 @@ export default function CodegenApp() {
         <div className="flex justify-center gap-3">
           <button
             type="button"
-            onClick={handleGenerate}
-            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium cursor-pointer"
+            disabled={loading}
+            onClick={() => void handleGenerate()}
+            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 disabled:opacity-60 text-white text-sm font-medium cursor-pointer"
           >
-            <RefreshCw className="w-4 h-4" /> Gerar Código
+            {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
+            {loading ? 'Gerando...' : 'Gerar Código'}
           </button>
           <button
             type="button"
