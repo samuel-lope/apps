@@ -9,6 +9,10 @@
   }
 }
 
+.font-ubuntu {
+  font-family: 'Ubuntu', sans-serif;
+}
+
 @keyframes portal-blink {
   0%,
   49% {

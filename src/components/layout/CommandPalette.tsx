@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router';
 import { Search, X } from 'lucide-react';
-import { CATEGORY_LABELS, PUBLIC_APPS } from '../../registry/apps';
+import { APPS, CATEGORY_LABELS } from '../../registry/apps';
 import { AppIcon } from '../ui/AppIcon';
 
 interface CommandPaletteProps {
@@ -16,8 +16,8 @@ export function CommandPalette({ open, onClose }: CommandPaletteProps) {
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
-    if (!q) return PUBLIC_APPS;
-    return PUBLIC_APPS.filter(
+    if (!q) return APPS;
+    return APPS.filter(
       (app) =>
         app.title.toLowerCase().includes(q) ||
         app.description.toLowerCase().includes(q) ||
